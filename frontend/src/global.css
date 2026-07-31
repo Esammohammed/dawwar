@@ -1,0 +1,126 @@
+:root {
+  --font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+
+  /* Brand — Dawwar (navy + gold) */
+  --primary: #2A3444;
+  --primary-hover: #1F2836;
+  --primary-light: #EAEDF2;
+  --primary-contrast: #FFFFFF;
+  --secondary: #C08A4E;
+  --secondary-hover: #A97538;
+  --secondary-light: #F6ECDF;
+  --secondary-border: #EBD8BC;
+  --accent: #A97538;
+  --on-gold: #2A3444;
+  --gold-gradient: linear-gradient(135deg, #F0D2A0, #C98F4F);
+  --gold-strong: #7A5324;
+  --gold-mid: #966A31;
+
+  /* Surfaces & text */
+  --bg-main: #F7F6F3;
+  --surface-card: #FFFFFF;
+  --surface-subtle: #F1EFEA;
+  --text-main: #232B38;
+  --text-soft: #444D5C;
+  --text-muted: #6E7684;
+  --border-color: #E5E2DC;
+  --border-strong: #D6D1C7;
+  --header-bg: rgba(255, 255, 255, 0.9);
+
+  /* Fixed navy — hero & footer keep these in both themes */
+  --navy: #2A3444;
+  --navy-deep: #222B39;
+  --navy-soft: #33405A;
+  --navy-text: #AEB8C8;
+  --navy-muted: #8E99AB;
+  --gold-on-navy: #F0D2A0;
+
+  /* Status */
+  --success: #1B8A50;
+  --success-bg: #EAF6EF;
+  --success-border: #CDE9DA;
+  --danger: #B3403A;
+  --danger-bg: #FBEFEE;
+  --danger-border: #F0CFCC;
+
+  /* Radii & shadows */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 25px -5px rgba(42, 52, 68, 0.18);
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  /* In dark mode gold becomes the action color; navy becomes the canvas */
+  --primary: #C98F4F;
+  --primary-hover: #D9A25F;
+  --primary-light: rgba(201, 143, 79, 0.14);
+  --primary-contrast: #1C2430;
+  --secondary: #C98F4F;
+  --secondary-hover: #D9A25F;
+  --secondary-light: rgba(201, 143, 79, 0.16);
+  --secondary-border: rgba(201, 143, 79, 0.35);
+  --accent: #E2B983;
+  --gold-strong: #F0D2A0;
+  --gold-mid: #D9B583;
+
+  --bg-main: #151B26;
+  --surface-card: #1F2734;
+  --surface-subtle: #242E3D;
+  --text-main: #E9EDF3;
+  --text-soft: #C3CBD8;
+  --text-muted: #98A3B5;
+  --border-color: #2E3948;
+  --border-strong: #3B4759;
+  --header-bg: rgba(21, 27, 38, 0.88);
+
+  --success: #62C98D;
+  --success-bg: rgba(98, 201, 141, 0.12);
+  --success-border: rgba(98, 201, 141, 0.3);
+  --danger: #E58B85;
+  --danger-bg: rgba(229, 139, 133, 0.12);
+  --danger-border: rgba(229, 139, 133, 0.3);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  /* direction comes from the dir attribute on <html>, set by the language switcher */
+  text-align: start;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+input, select, textarea {
+  font-family: inherit;
+}

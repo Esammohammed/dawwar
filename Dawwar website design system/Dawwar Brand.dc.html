@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#F7F6F3; font-family:'Cairo',system-ui,sans-serif; }
+  a { color:#C08A4E; text-decoration:none; }
+  a:hover { color:#A97538; }
+  @keyframes dw-pulse { 0%,100% { opacity:1; transform:scale(1);} 50% { opacity:0.55; transform:scale(0.94);} }
+</style>
+</helmet>
+<div dir="rtl" style="min-height:100vh; color:#232B38;">
+
+  <!-- ============ LOCKUP ============ -->
+  <div data-screen-label="اللوجو" style="background:#2A3444; padding:72px 32px 64px; display:flex; flex-direction:column; align-items:center; gap:28px;">
+    <img src="assets/dawwar-mark.svg" alt="Dawwar mark" style="width:150px; height:150px;">
+    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+      <div style="font-size:64px; font-weight:900; line-height:1.1; background:linear-gradient(135deg,#F0D2A0,#C98F4F); -webkit-background-clip:text; background-clip:text; color:transparent;">دوّار</div>
+      <div style="font-size:16px; font-weight:600; letter-spacing:0.45em; color:#8E99AB; text-transform:uppercase; padding-right:0.45em;">DAWWAR</div>
+    </div>
+    <div style="font-size:15px; color:#8E99AB; max-width:520px; text-align:center;"><br></div>
+  </div>
+
+  <div style="max-width:1080px; margin:0 auto; padding:56px 32px 96px; display:flex; flex-direction:column; gap:64px;">
+
+    <!-- ============ LOGO VARIANTS ============ -->
+    <section data-screen-label="استخدامات اللوجو">
+      <h2 style="font-size:26px; font-weight:800; margin:0 0 20px;">استخدامات اللوجو</h2>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:20px;">
+        <div style="background:#FFFFFF; border:1px solid #E5E2DC; border-radius:16px; padding:28px; display:flex; flex-direction:column; align-items:center; gap:14px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <img src="assets/dawwar-mark.svg" alt="" style="width:44px; height:44px;">
+            <div style="font-size:30px; font-weight:900; color:#2A3444;">دوّار</div>
+          </div>
+          <div style="font-size:13px; color:#6E7684;">أفقي — على خلفية فاتحة (Navbar)</div>
+        </div>
+        <div style="background:#2A3444; border-radius:16px; padding:28px; display:flex; flex-direction:column; align-items:center; gap:14px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <img src="assets/dawwar-mark.svg" alt="" style="width:44px; height:44px;">
+            <div style="font-size:30px; font-weight:900; color:#F0D2A0;">دوّار</div>
+          </div>
+          <div style="font-size:13px; color:#8E99AB;">أفقي — على خلفية كحلي (Footer / Hero)</div>
+        </div>
+        <div style="background:#FFFFFF; border:1px solid #E5E2DC; border-radius:16px; padding:28px; display:flex; flex-direction:column; align-items:center; gap:14px;">
+          <img src="assets/dawwar-mark.svg" alt="" style="width:64px; height:64px;">
+          <div style="font-size:13px; color:#6E7684;">العلامة فقط — <a href="assets/dawwar-mark.svg">dawwar-mark.svg</a></div>
+        </div>
+        <div style="background:#FFFFFF; border:1px solid #E5E2DC; border-radius:16px; padding:28px; display:flex; flex-direction:column; align-items:center; gap:14px;">
+          <div style="display:flex; align-items:end; gap:14px;">
+            <img src="assets/dawwar-favicon.svg" alt="" style="width:64px; height:64px;">
+            <img src="assets/dawwar-favicon.svg" alt="" style="width:32px; height:32px;">
+            <img src="assets/dawwar-favicon.svg" alt="" style="width:16px; height:16px;">
+          </div>
+          <div style="font-size:13px; color:#6E7684;">Favicon — <a href="assets/dawwar-favicon.svg">dawwar-favicon.svg</a></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ COLOR PALETTE ============ -->
+    <section data-screen-label="الألوان">
+      <h2 style="font-size:26px; font-weight:800; margin:0 0 6px;">الـ Color Palette</h2>
+      <p style="margin:0 0 20px; font-size:14px; color:#6E7684;">كحلي Eskan للأساس + الذهبي للأكشن والتمييز. الموقع فاتح، والكحلي للـ Hero والـ Footer والنصوص.</p>
+      <h3 style="font-size:16px; font-weight:700; margin:0 0 12px; color:#6E7684;">ألوان البراند</h3>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; margin-bottom:28px;">
+        <sc-for list="{{ brandColors }}" as="c" hint-placeholder-count="5">
+          <div style="border:1px solid #E5E2DC; border-radius:14px; overflow:hidden; background:#fff;">
+            <div style="height:84px; background:{{ c.bg }};"></div>
+            <div style="padding:12px 14px;">
+              <div style="font-weight:700; font-size:14px;">{{ c.name }}</div>
+              <div style="font-size:12px; color:#6E7684; font-family:ui-monospace,monospace; direction:ltr; text-align:right;">{{ c.hex }}</div>
+              <div style="font-size:11px; color:#9AA0AB; font-family:ui-monospace,monospace; direction:ltr; text-align:right;">{{ c.varName }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <h3 style="font-size:16px; font-weight:700; margin:0 0 12px; color:#6E7684;">ألوان الواجهة (Light UI)</h3>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px;">
+        <sc-for list="{{ uiColors }}" as="c" hint-placeholder-count="6">
+          <div style="border:1px solid #E5E2DC; border-radius:14px; overflow:hidden; background:#fff;">
+            <div style="height:60px; background:{{ c.bg }}; border-bottom:1px solid #EFECE6;"></div>
+            <div style="padding:12px 14px;">
+              <div style="font-weight:700; font-size:14px;">{{ c.name }}</div>
+              <div style="font-size:12px; color:#6E7684; font-family:ui-monospace,monospace; direction:ltr; text-align:right;">{{ c.hex }}</div>
+              <div style="font-size:11px; color:#9AA0AB; font-family:ui-monospace,monospace; direction:ltr; text-align:right;">{{ c.varName }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- ============ CSS TOKENS ============ -->
+    <section data-screen-label="CSS Tokens">
+      <h2 style="font-size:26px; font-weight:800; margin:0 0 6px;">جاهز للفرونت إند</h2>
+      <p style="margin:0 0 16px; font-size:14px; color:#6E7684;">انسخ البلوك ده مكان الـ <span style="font-family:ui-monospace,monospace; direction:ltr; unicode-bidi:embed;">:root</span> الحالي في global.css:</p>
+      <pre style="margin:0; background:#2A3444; color:#D9DEE7; border-radius:14px; padding:24px 28px; font-size:13px; line-height:1.75; overflow-x:auto; direction:ltr; text-align:left; font-family:ui-monospace,SFMono-Regular,monospace;">{{ cssTokens }}</pre>
+    </section>
+
+    <!-- ============ TYPOGRAPHY ============ -->
+    <section data-screen-label="الخطوط">
+      <h2 style="font-size:26px; font-weight:800; margin:0 0 20px;">الخط: Cairo</h2>
+      <div style="background:#fff; border:1px solid #E5E2DC; border-radius:16px; padding:28px; display:flex; flex-direction:column; gap:14px;">
+        <div style="font-size:40px; font-weight:900;">دوّار — كل بيوت مصر في مكان واحد</div>
+        <div style="font-size:24px; font-weight:700; color:#2A3444;">عناوين الأقسام Bold 700</div>
+        <div style="font-size:16px; font-weight:600; color:#232B38;">نصوص الواجهة والأزرار SemiBold 600</div>
+        <div style="font-size:15px; font-weight:400; color:#6E7684;">النص العادي للوصف والتفاصيل Regular 400 — نفس الخط المستخدم حاليًا في الكود، مفيش تغيير مطلوب.</div>
+      </div>
+    </section>
+
+    <!-- ============ HERO IMAGE ============ -->
+    <section data-screen-label="صورة الهيرو">
+      <h2 style="font-size:26px; font-weight:800; margin:0 0 6px;">صورة الـ Hero</h2>
+      <p style="margin:0 0 16px; font-size:14px; color:#6E7684;">بانر الصفحة الرئيسية (1600×600) — جاهز للتصدير PNG.</p>
+      <div id="hero-asset" style="aspect-ratio:1600/600; border-radius:16px; overflow:hidden; position:relative; background:linear-gradient(120deg,#222B39,#2A3444 55%,#33405A);">
+        <img src="assets/dawwar-mark.svg" alt="" style="position:absolute; left:-6%; top:-28%; width:44%; opacity:0.12;">
+        <img src="assets/dawwar-mark.svg" alt="" style="position:absolute; left:20%; bottom:-46%; width:26%; opacity:0.07;">
+        <div style="position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; gap:14px; padding:0 7%;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <img src="assets/dawwar-mark.svg" alt="" style="width:40px; height:40px;">
+            <span style="font-size:22px; font-weight:800; color:#F0D2A0;">دوّار</span>
+          </div>
+          <div style="font-size:clamp(24px,3.4vw,46px); font-weight:900; color:#FFFFFF; line-height:1.25; max-width:60%;">بيتك الجديد يبدأ من دوّار</div>
+          <div style="font-size:clamp(13px,1.4vw,19px); color:#AEB8C8; max-width:55%;">مشروعات الإسكان الحكومية، وحدات المطورين، وإعادة البيع — في منصة واحدة.</div>
+          <div style="margin-top:6px;"><span style="display:inline-block; background:linear-gradient(135deg,#F0D2A0,#C98F4F); color:#2A3444; font-weight:800; font-size:clamp(12px,1.3vw,17px); padding:10px 28px; border-radius:10px;">ابدأ البحث</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ OG IMAGE ============ -->
+    <section data-screen-label="صورة المشاركة">
+      <h2 style="font-size:26px; font-weight:800; margin:0 0 6px;">صورة الـ Open Graph</h2>
+      <p style="margin:0 0 16px; font-size:14px; color:#6E7684;">للمشاركة على السوشيال (1200×630).</p>
+      <div id="og-asset" style="max-width:640px; aspect-ratio:1200/630; border-radius:16px; overflow:hidden; position:relative; background:linear-gradient(135deg,#232C3A,#2A3444 60%,#313D55);">
+        <img src="assets/dawwar-mark.svg" alt="" style="position:absolute; left:-14%; bottom:-24%; width:52%; opacity:0.1;">
+        <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;">
+          <img src="assets/dawwar-mark.svg" alt="" style="width:22%;">
+          <div style="font-size:44px; font-weight:900; background:linear-gradient(135deg,#F0D2A0,#C98F4F); -webkit-background-clip:text; background-clip:text; color:transparent;">دوّار</div>
+          <div style="font-size:15px; color:#8E99AB; letter-spacing:0.4em; padding-right:0.4em;">DAWWAR</div>
+          <div style="font-size:16px; color:#AEB8C8;">منصة العقارات — إسكان حكومي · مطورين · إعادة بيع</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ LOADING & EMPTY STATES ============ -->
+    <section data-screen-label="حالات التحميل والفراغ">
+      <h2 style="font-size:26px; font-weight:800; margin:0 0 20px;">Loading و Empty states</h2>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:20px;">
+        <div style="background:#fff; border:1px solid #E5E2DC; border-radius:16px; padding:36px 28px; display:flex; flex-direction:column; align-items:center; gap:16px;">
+          <img src="assets/dawwar-mark.svg" alt="" style="width:56px; height:56px; animation:dw-pulse 1.4s ease-in-out infinite;">
+          <div style="font-size:14px; font-weight:600; color:#6E7684;">جارٍ التحميل…</div>
+          <div style="font-size:12px; color:#9AA0AB;">العلامة بتعمل نبض هادئ (pulse) — من غير أي دوران.</div>
+        </div>
+        <div style="background:#fff; border:1px solid #E5E2DC; border-radius:16px; padding:36px 28px; display:flex; flex-direction:column; align-items:center; gap:16px;">
+          <img src="assets/dawwar-mark.svg" alt="" style="width:56px; height:56px; opacity:0.3;">
+          <div style="font-size:16px; font-weight:700;">مفيش نتائج مطابقة</div>
+          <div style="font-size:13px; color:#6E7684; text-align:center;">جرّب توسّع نطاق البحث أو تغيّر الفلاتر.</div>
+          <span style="background:#2A3444; color:#F0D2A0; font-weight:700; font-size:13px; padding:8px 22px; border-radius:10px;">مسح الفلاتر</span>
+        </div>
+        <div style="background:#fff; border:1px solid #E5E2DC; border-radius:16px; padding:36px 28px; display:flex; flex-direction:column; align-items:center; gap:16px;">
+          <img src="assets/dawwar-mark.svg" alt="" style="width:56px; height:56px; opacity:0.3;">
+          <div style="font-size:16px; font-weight:700;">لسه مفيش حجوزات</div>
+          <div style="font-size:13px; color:#6E7684; text-align:center;">أول ما تحجز وحدة هتلاقيها هنا.</div>
+          <span style="background:linear-gradient(135deg,#F0D2A0,#C98F4F); color:#2A3444; font-weight:800; font-size:13px; padding:8px 22px; border-radius:10px;">استكشف الوحدات</span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const brandColors = [
+      { name: 'كحلي دوّار', hex: '#2A3444', varName: '--primary', bg: '#2A3444' },
+      { name: 'كحلي غامق (hover)', hex: '#1F2836', varName: '--primary-hover', bg: '#1F2836' },
+      { name: 'ذهبي دوّار', hex: '#C08A4E', varName: '--secondary', bg: '#C08A4E' },
+      { name: 'ذهبي غامق (hover)', hex: '#A97538', varName: '--secondary-hover', bg: '#A97538' },
+      { name: 'تدرّج ذهبي', hex: '#F0D2A0 → #C98F4F', varName: '--gold-gradient', bg: 'linear-gradient(135deg,#F0D2A0,#C98F4F)' },
+    ];
+    const uiColors = [
+      { name: 'خلفية الموقع', hex: '#F7F6F3', varName: '--bg-main', bg: '#F7F6F3' },
+      { name: 'الكروت', hex: '#FFFFFF', varName: '--surface-card', bg: '#FFFFFF' },
+      { name: 'كحلي فاتح (tints)', hex: '#EAEDF2', varName: '--primary-light', bg: '#EAEDF2' },
+      { name: 'ذهبي فاتح (tints)', hex: '#F6ECDF', varName: '--secondary-light', bg: '#F6ECDF' },
+      { name: 'النص الأساسي', hex: '#232B38', varName: '--text-main', bg: '#232B38' },
+      { name: 'النص الثانوي', hex: '#6E7684', varName: '--text-muted', bg: '#6E7684' },
+      { name: 'الحدود', hex: '#E5E2DC', varName: '--border-color', bg: '#E5E2DC' },
+    ];
+    const cssTokens = `:root {
+  --font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+
+  /* Brand — Dawwar (from Eskan palette) */
+  --primary: #2A3444;
+  --primary-hover: #1F2836;
+  --primary-light: #EAEDF2;
+  --secondary: #C08A4E;
+  --secondary-hover: #A97538;
+  --secondary-light: #F6ECDF;
+  --gold-gradient: linear-gradient(135deg, #F0D2A0, #C98F4F);
+
+  /* Surfaces & text */
+  --bg-main: #F7F6F3;
+  --surface-card: #FFFFFF;
+  --text-main: #232B38;
+  --text-muted: #6E7684;
+  --border-color: #E5E2DC;
+
+  /* Radii & shadows (unchanged) */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 10px 25px -5px rgba(42, 52, 68, 0.18);
+}`;
+    return { brandColors, uiColors, cssTokens };
+  }
+}
+</script>
+</body>
+</html>

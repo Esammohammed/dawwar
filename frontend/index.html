@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>دوّار — مش هتدوّر تاني</title>
+    <meta name="description" content="دوّار — الذكاء الاصطناعي بيجمعلك مشروعات الإسكان الحكومية، وحدات المطورين، وإعادة البيع في مكان واحد، ويلاقيلك البيت المناسب." />
+    <meta property="og:title" content="دوّار — مش هتدوّر تاني" />
+    <meta property="og:description" content="منصة العقارات بالذكاء الاصطناعي — إسكان حكومي · مطورين · إعادة بيع" />
+    <meta property="og:image" content="/dawwar-og.png" />
+    <meta property="og:type" content="website" />
+    <script>
+      (function () {
+        var t = localStorage.getItem('dawwar_theme');
+        if (t !== 'light' && t !== 'dark') {
+          t = 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
