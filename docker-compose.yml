@@ -22,7 +22,7 @@ services:
   web:
     build: ./backend
     container_name: dawwar_web
-    command: sh -c "python manage.py migrate && python manage.py seed_dawwar_data && python manage.py runserver 0.0.0.0:8000"
+    command: sh -c "python manage.py migrate && python manage.py seed_homi_data && python manage.py runserver 0.0.0.0:8000"
     volumes:
       - ./backend:/app
     ports:
@@ -79,14 +79,10 @@ services:
       - redis
 
   frontend:
-    image: node:20-alpine
+    build: ./frontend
     container_name: dawwar_frontend
-    working_dir: /app/frontend
-    command: sh -c "npm install && npm run dev"
-    volumes:
-      - ./frontend:/app/frontend
     ports:
-      - "3000:3000"
+      - "3000:80"
     depends_on:
       - web
 
