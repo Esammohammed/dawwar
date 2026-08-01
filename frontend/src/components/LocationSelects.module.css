@@ -1,0 +1,16 @@
+.otherWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.backLink {
+  align-self: flex-start;
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}

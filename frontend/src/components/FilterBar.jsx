@@ -2,6 +2,7 @@ import React from 'react';
 import { Search, RotateCcw } from 'lucide-react';
 import { useFilterStore } from '../stores/filterStore';
 import { useTranslation } from '../i18n/i18nContext';
+import { GovernorateSelect, CitySelect } from './LocationSelects';
 import styles from './FilterBar.module.css';
 
 const FilterBar = ({ onSearch }) => {
@@ -14,6 +15,11 @@ const FilterBar = ({ onSearch }) => {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (onSearch) onSearch();
+  };
+
+  const handleGovernorateChange = (e) => {
+    setFilter('governorate', e.target.value);
+    setFilter('city', '');
   };
 
   return (
@@ -31,23 +37,23 @@ const FilterBar = ({ onSearch }) => {
 
         <div className={styles.fieldGroup}>
           <label className={styles.label}>{t('filter.governorate')}</label>
-          <select value={governorate} onChange={(e) => setFilter('governorate', e.target.value)} className={styles.select}>
-            <option value="">{t('filter.allGovs')}</option>
-            <option value="Giza">Giza / الجيزة</option>
-            <option value="Cairo">Cairo / القاهرة</option>
-            <option value="Alexandria">Alexandria / الإسكندرية</option>
-          </select>
+          <GovernorateSelect
+            value={governorate}
+            onChange={handleGovernorateChange}
+            className={styles.select}
+            placeholder={t('filter.allGovs')}
+          />
         </div>
 
         <div className={styles.fieldGroup}>
           <label className={styles.label}>{t('filter.city')}</label>
-          <select value={city} onChange={(e) => setFilter('city', e.target.value)} className={styles.select}>
-            <option value="">{t('filter.allCities')}</option>
-            <option value="6th of October">6th of October / 6 أكتوبر</option>
-            <option value="Sheikh Zayed">Sheikh Zayed / الشيخ زايد</option>
-            <option value="New Cairo">New Cairo / القاهرة الجديدة</option>
-            <option value="New Capital">New Capital / العاصمة الإدارية</option>
-          </select>
+          <CitySelect
+            governorate={governorate}
+            value={city}
+            onChange={(e) => setFilter('city', e.target.value)}
+            className={styles.select}
+            placeholder={t('filter.allCities')}
+          />
         </div>
 
         <div className={styles.fieldGroup}>

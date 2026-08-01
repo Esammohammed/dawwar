@@ -3,11 +3,11 @@ import { Save, KeyRound } from 'lucide-react';
 import api from '../api/client';
 import { useAuthStore } from '../stores/authStore';
 import { useTranslation } from '../i18n/i18nContext';
-import { GOVERNORATES } from '../constants/governorates';
+import { GovernorateSelect, CitySelect } from './LocationSelects';
 import styles from './ProfileSection.module.css';
 
 const ProfileSection = () => {
-  const { t, language } = useTranslation();
+  const { t } = useTranslation();
   const { setUser } = useAuthStore();
   const [profile, setProfile] = useState(null);
   const [form, setForm] = useState({
@@ -63,6 +63,11 @@ const ProfileSection = () => {
 
   const setField = (field) => (e) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  };
+
+  const handleGovernorateChange = (e) => {
+    const { value } = e.target;
+    setForm((prev) => ({ ...prev, governorate: value, city: '' }));
   };
 
   const handleSave = async (e) => {
@@ -147,19 +152,18 @@ const ProfileSection = () => {
           </div>
           <div className={styles.inputGroup}>
             <label className={styles.label}>{t('account.governorateLabel')}</label>
-            <select value={form.governorate} onChange={setField('governorate')} className={styles.input}>
-              <option value="">{t('account.selectGovernorate')}</option>
-              {GOVERNORATES.map((gov) => (
-                <option key={gov.value} value={gov.value}>
-                  {language === 'ar' ? gov.ar : gov.en}
-                </option>
-              ))}
-            </select>
+            <GovernorateSelect
+              mode="profile"
+              value={form.governorate}
+              onChange={handleGovernorateChange}
+              className={styles.input}
+            />
           </div>
           <div className={styles.inputGroup}>
             <label className={styles.label}>{t('account.cityLabel')}</label>
-            <input
-              type="text"
+            <CitySelect
+              mode="profile"
+              governorate={form.governorate}
               value={form.city}
               onChange={setField('city')}
               className={styles.input}

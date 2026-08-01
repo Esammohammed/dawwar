@@ -22,6 +22,7 @@ class ListingViewSet(viewsets.ModelViewSet):
         params = self.request.query_params
 
         listing_type = params.get('type')
+        project = params.get('project')
         governorate = params.get('governorate')
         city = params.get('city')
         district = params.get('district')
@@ -33,6 +34,8 @@ class ListingViewSet(viewsets.ModelViewSet):
 
         if listing_type:
             qs = qs.filter(type=listing_type)
+        if project:
+            qs = qs.filter(project_id=project)
         if governorate:
             qs = qs.filter(governorate__iexact=governorate)
         if city:

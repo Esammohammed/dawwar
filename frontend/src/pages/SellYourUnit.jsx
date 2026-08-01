@@ -4,6 +4,7 @@ import { CheckCircle } from 'lucide-react';
 import api from '../api/client';
 import { useAuthStore } from '../stores/authStore';
 import { useTranslation } from '../i18n/i18nContext';
+import { GovernorateSelect, CitySelect } from '../components/LocationSelects';
 import styles from './SellYourUnit.module.css';
 
 const SellYourUnit = () => {
@@ -36,6 +37,11 @@ const SellYourUnit = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleGovernorateChange = (e) => {
+    const { value } = e.target;
+    setFormData((prev) => ({ ...prev, governorate: value, city: '' }));
   };
 
   const handleSubmit = async (e) => {
@@ -124,20 +130,17 @@ const SellYourUnit = () => {
               <div className={styles.grid2}>
                 <div className={styles.field}>
                   <label className={styles.label}>{t('sell.govLabel')}</label>
-                  <input
-                    type="text"
-                    name="governorate"
+                  <GovernorateSelect
                     value={formData.governorate}
-                    onChange={handleChange}
+                    onChange={handleGovernorateChange}
                     className={styles.input}
                     required
                   />
                 </div>
                 <div className={styles.field}>
                   <label className={styles.label}>{t('sell.cityLabel')}</label>
-                  <input
-                    type="text"
-                    name="city"
+                  <CitySelect
+                    governorate={formData.governorate}
                     value={formData.city}
                     onChange={handleChange}
                     className={styles.input}

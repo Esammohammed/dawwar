@@ -9,6 +9,7 @@ import Home from './pages/Home';
 import Listings from './pages/Listings';
 import ListingDetail from './pages/ListingDetail';
 import Projects from './pages/Projects';
+import ProjectDetail from './pages/ProjectDetail';
 import GovNews from './pages/GovNews';
 import SellYourUnit from './pages/SellYourUnit';
 import Account from './pages/Account';
@@ -35,6 +36,7 @@ function App() {
                 <Route path="/listings" element={<Listings />} />
                 <Route path="/listings/:id" element={<ListingDetail />} />
                 <Route path="/projects" element={<Projects />} />
+                <Route path="/projects/:slug" element={<ProjectDetail />} />
                 <Route path="/gov-news" element={<GovNews />} />
                 <Route path="/sell" element={<SellYourUnit />} />
                 <Route path="/account" element={<Account />} />

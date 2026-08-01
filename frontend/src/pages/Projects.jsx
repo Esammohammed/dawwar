@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { MapPin } from 'lucide-react';
 import api from '../api/client';
 import { useTranslation } from '../i18n/i18nContext';
@@ -35,7 +36,7 @@ const Projects = () => {
       ) : (
         <div className={styles.grid}>
           {projects.map((project) => (
-            <div key={project.id} className={styles.projectCard}>
+            <Link key={project.id} to={`/projects/${project.slug}`} className={styles.projectCard}>
               <div className={styles.cardImage}>
                 <img
                   src={project.cover_image || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80'}
@@ -60,7 +61,7 @@ const Projects = () => {
                   </span>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

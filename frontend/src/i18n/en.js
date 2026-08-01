@@ -19,6 +19,14 @@ const en = {
     highlight: 'Never Search Again',
     subtitle: "Dawwar's AI brings government housing, developer units, and resale transfers together in one place — and finds the home that fits you.",
   },
+  location: {
+    selectGovernorate: 'Select governorate',
+    selectCity: 'Select city',
+    selectGovernorateFirst: 'Select governorate first',
+    otherCity: 'Other area...',
+    otherCityPlaceholder: 'Type the area name',
+    backToList: '← Back to area list',
+  },
   filter: {
     propertyType: 'Property Type',
     allTypes: 'All Types',
@@ -77,6 +85,10 @@ const en = {
     devProject: 'Private Compound',
     status: 'Status',
     loading: 'Loading projects...',
+    notFound: 'This project could not be found.',
+    unitsInProject: 'Units Listed in This Project',
+    noUnits: 'No units are currently listed for this project.',
+    backToProjects: '→ Back to all projects',
   },
   govNews: {
     title: 'Government Announcements',
@@ -128,7 +140,6 @@ const en = {
     verified: 'Verified Account',
     addressLabel: 'Address',
     governorateLabel: 'Governorate',
-    selectGovernorate: 'Select governorate',
     cityLabel: 'City / District',
     dobLabel: 'Date of Birth',
     nationalIdLabel: 'National ID',

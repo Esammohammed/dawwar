@@ -19,6 +19,14 @@ const ar = {
     highlight: 'ومش هتدوّر تاني',
     subtitle: 'الذكاء الاصطناعي في دوّار بيجمعلك مشروعات الإسكان الحكومية، وحدات المطورين، وإعادة البيع في مكان واحد — ويلاقيلك البيت المناسب.',
   },
+  location: {
+    selectGovernorate: 'اختر المحافظة',
+    selectCity: 'اختر المدينة',
+    selectGovernorateFirst: 'اختر المحافظة أولاً',
+    otherCity: 'منطقة أخرى...',
+    otherCityPlaceholder: 'اكتب اسم المنطقة',
+    backToList: '← الرجوع لقائمة المناطق',
+  },
   filter: {
     propertyType: 'نوع العقار',
     allTypes: 'جميع الأنواع',
@@ -77,6 +85,10 @@ const ar = {
     devProject: 'كمبوند خاص',
     status: 'الحالة',
     loading: 'جاري تحميل المشروعات...',
+    notFound: 'لم يتم العثور على هذا المشروع.',
+    unitsInProject: 'الوحدات المعروضة في هذا المشروع',
+    noUnits: 'لا توجد وحدات معروضة في هذا المشروع حاليًا.',
+    backToProjects: '→ العودة إلى كل المشروعات',
   },
   govNews: {
     title: 'الإعلانات والطروحات الحكومية',
@@ -128,7 +140,6 @@ const ar = {
     verified: 'حساب موثّق',
     addressLabel: 'العنوان',
     governorateLabel: 'المحافظة',
-    selectGovernorate: 'اختر المحافظة',
     cityLabel: 'المدينة / الحي',
     dobLabel: 'تاريخ الميلاد',
     nationalIdLabel: 'الرقم القومي',

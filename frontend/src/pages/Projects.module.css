@@ -37,6 +37,9 @@
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: block;
+  text-decoration: none;
+  color: inherit;
 }
 
 .projectCard:hover {
