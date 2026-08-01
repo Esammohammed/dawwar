@@ -3,12 +3,13 @@ import { User } from 'lucide-react';
 import api from '../api/client';
 import { useAuthStore } from '../stores/authStore';
 import { useTranslation } from '../i18n/i18nContext';
+import ProfileSection from '../components/ProfileSection';
 import styles from './Account.module.css';
 
 const Account = () => {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState('listings');
+  const [activeTab, setActiveTab] = useState('profile');
   const [myListings, setMyListings] = useState([]);
   const [myBookings, setMyBookings] = useState([]);
   const [myApplications, setMyApplications] = useState([]);
@@ -53,12 +54,21 @@ const Account = () => {
         </div>
         <div>
           <h1 className={styles.profileName}>{user.full_name || 'User'}</h1>
-          <p className={styles.profileMeta}>Phone: {user.phone} • Verified Account ✓</p>
+          <p className={styles.profileMeta}>
+            {t('account.phone')}: {user.phone}
+            {user.is_phone_verified && <> • {t('account.verified')} ✓</>}
+          </p>
         </div>
       </div>
 
       {/* Tabs */}
       <div className={styles.tabs}>
+        <button
+          onClick={() => setActiveTab('profile')}
+          className={`${styles.tab} ${activeTab === 'profile' ? styles.tabActive : ''}`}
+        >
+          {t('account.profileTab')}
+        </button>
         <button
           onClick={() => setActiveTab('listings')}
           className={`${styles.tab} ${activeTab === 'listings' ? styles.tabActive : ''}`}
@@ -80,7 +90,9 @@ const Account = () => {
       </div>
 
       {/* Content */}
-      {loading ? (
+      {activeTab === 'profile' ? (
+        <ProfileSection />
+      ) : loading ? (
         <div className={styles.loadingState}>Updating...</div>
       ) : activeTab === 'listings' ? (
         myListings.length > 0 ? (

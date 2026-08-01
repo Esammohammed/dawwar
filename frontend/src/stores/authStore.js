@@ -10,6 +10,20 @@ export const useAuthStore = create((set) => ({
     localStorage.setItem('dawwar_refresh_token', refresh);
     set({ user, accessToken: access, refreshToken: refresh });
   },
+  setUser: (user) => {
+    localStorage.setItem('dawwar_user', JSON.stringify(user));
+    set({ user });
+  },
+  setTokens: (access, refresh) => {
+    localStorage.setItem('dawwar_access_token', access);
+    if (refresh) {
+      localStorage.setItem('dawwar_refresh_token', refresh);
+    }
+    set((state) => ({
+      accessToken: access,
+      refreshToken: refresh || state.refreshToken,
+    }));
+  },
   logout: () => {
     localStorage.removeItem('dawwar_user');
     localStorage.removeItem('dawwar_access_token');

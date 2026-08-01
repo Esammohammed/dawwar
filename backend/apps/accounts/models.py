@@ -8,6 +8,36 @@ class UserRole(models.TextChoices):
     STAFF = 'staff', 'Staff'
     ADMIN = 'admin', 'Admin'
 
+class Governorate(models.TextChoices):
+    # Values must stay in sync with frontend/src/constants/governorates.js
+    CAIRO = 'cairo', 'Cairo'
+    GIZA = 'giza', 'Giza'
+    ALEXANDRIA = 'alexandria', 'Alexandria'
+    QALYUBIA = 'qalyubia', 'Qalyubia'
+    SHARQIA = 'sharqia', 'Sharqia'
+    DAKAHLIA = 'dakahlia', 'Dakahlia'
+    BEHEIRA = 'beheira', 'Beheira'
+    GHARBIA = 'gharbia', 'Gharbia'
+    MONUFIA = 'monufia', 'Monufia'
+    KAFR_EL_SHEIKH = 'kafr_el_sheikh', 'Kafr El Sheikh'
+    DAMIETTA = 'damietta', 'Damietta'
+    PORT_SAID = 'port_said', 'Port Said'
+    ISMAILIA = 'ismailia', 'Ismailia'
+    SUEZ = 'suez', 'Suez'
+    NORTH_SINAI = 'north_sinai', 'North Sinai'
+    SOUTH_SINAI = 'south_sinai', 'South Sinai'
+    RED_SEA = 'red_sea', 'Red Sea'
+    MATROUH = 'matrouh', 'Matrouh'
+    NEW_VALLEY = 'new_valley', 'New Valley'
+    FAYOUM = 'fayoum', 'Fayoum'
+    BENI_SUEF = 'beni_suef', 'Beni Suef'
+    MINYA = 'minya', 'Minya'
+    ASSIUT = 'assiut', 'Assiut'
+    SOHAG = 'sohag', 'Sohag'
+    QENA = 'qena', 'Qena'
+    LUXOR = 'luxor', 'Luxor'
+    ASWAN = 'aswan', 'Aswan'
+
 class UserManager(BaseUserManager):
     def create_user(self, phone, full_name='', password=None, **extra_fields):
         if not phone:
@@ -30,8 +60,13 @@ class UserManager(BaseUserManager):
 class User(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     phone = models.CharField(max_length=20, unique=True, db_index=True)
-    email = models.EmailField(max_length=254, blank=True, null=True)
+    email = models.EmailField(max_length=254, unique=True, blank=True, null=True)
     full_name = models.CharField(max_length=150)
+    address = models.CharField(max_length=255, blank=True, default='')
+    governorate = models.CharField(max_length=32, choices=Governorate.choices, blank=True, default='')
+    city = models.CharField(max_length=100, blank=True, default='')
+    date_of_birth = models.DateField(null=True, blank=True)
+    national_id = models.CharField(max_length=14, blank=True, default='')
     role = models.CharField(max_length=10, choices=UserRole.choices, default=UserRole.BUYER)
     is_phone_verified = models.BooleanField(default=False)
     telegram_id = models.CharField(max_length=50, blank=True, null=True)
@@ -54,10 +89,24 @@ class User(AbstractBaseUser, PermissionsMixin):
         return f"{self.full_name} ({self.phone})"
 
 class OTPCode(models.Model):
+    class DeliveryMethod(models.TextChoices):
+        PHONE = 'phone', 'Phone'
+        EMAIL = 'email', 'Email'
+
+    class Purpose(models.TextChoices):
+        REGISTER = 'register', 'Register'
+        LOGIN = 'login', 'Login'
+        RESET = 'reset', 'Password Reset'
+
+    MAX_ATTEMPTS = 5
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    phone = models.CharField(max_length=20)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    email = models.EmailField(max_length=254, blank=True, null=True)
+    delivery_method = models.CharField(max_length=10, choices=DeliveryMethod.choices, default=DeliveryMethod.PHONE)
     code_hash = models.CharField(max_length=128)
-    purpose = models.CharField(max_length=20, default='login')
+    purpose = models.CharField(max_length=20, choices=Purpose.choices, default=Purpose.LOGIN)
+    attempts = models.PositiveSmallIntegerField(default=0)
     expires_at = models.DateTimeField()
     consumed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -66,7 +115,10 @@ class OTPCode(models.Model):
         db_table = 'otp_codes'
         indexes = [
             models.Index(fields=['phone', 'expires_at'], name='idx_otp_phone'),
+            models.Index(fields=['email', 'expires_at'], name='idx_otp_email'),
         ]
 
     def __str__(self):
-        return f"OTP for {self.phone} ({self.purpose})"
+        target = self.email if self.delivery_method == self.DeliveryMethod.EMAIL else self.phone
+        return f"OTP for {target} via {self.delivery_method} ({self.purpose})"
+
