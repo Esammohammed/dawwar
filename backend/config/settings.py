@@ -113,6 +113,24 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# ─── File Upload ──────────────────────────────────────────────────────────────
+# Maximum allowed size per uploaded image (10 MB).
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024
+
+# ─── Storage Backend ──────────────────────────────────────────────────────────
+# For development, uploaded files are stored on disk under MEDIA_ROOT.
+# To switch to S3 for production, install django-storages and boto3, then set:
+#
+#   DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+#   AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
+#   AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')
+#   AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+#   AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+#   AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
+#
+# No changes to model or service code are required.
+
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {

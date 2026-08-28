@@ -8,7 +8,7 @@ const ListingCard = ({ listing }) => {
   const { t, language } = useTranslation();
 
   const coverPhoto = listing.media && listing.media.length > 0
-    ? listing.media[0].file
+    ? (listing.media.find((m) => m.is_primary) || listing.media[0]).url
     : 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=600&q=80';
 
   const formatPrice = (price) => {

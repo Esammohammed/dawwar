@@ -92,9 +92,13 @@ class Listing(models.Model):
 class Media(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='media')
-    file = models.CharField(max_length=500)
+    # ImageField stores files on disk (MEDIA_ROOT/listings/YYYY/MM/).
+    # To swap to S3 in production, simply set DEFAULT_FILE_STORAGE in settings —
+    # no model or service code needs to change.
+    file = models.ImageField(upload_to='listings/%Y/%m/')
     kind = models.CharField(max_length=10, choices=MediaKind.choices, default=MediaKind.PHOTO)
     sort_order = models.PositiveSmallIntegerField(default=0)
+    is_primary = models.BooleanField(default=False, db_index=True)
 
     class Meta:
         db_table = 'media'
@@ -102,6 +106,15 @@ class Media(models.Model):
         indexes = [
             models.Index(fields=['listing', 'sort_order'], name='idx_media_listing'),
         ]
+
+    @property
+    def url(self) -> str:
+        """Return the publicly accessible URL for this media file.
+
+        Works for both local file storage (returns /media/...) and
+        cloud storage backends (returns a full https:// URL).
+        """
+        return self.file.url if self.file else ''
 
     def __str__(self):
         return f"Media {self.kind} for {self.listing_id}"

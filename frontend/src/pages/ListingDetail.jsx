@@ -22,7 +22,9 @@ const ListingDetail = () => {
         const res = await api.get(`/listings/${id}/`);
         setListing(res.data);
         if (res.data.media && res.data.media.length > 0) {
-          setSelectedPhoto(res.data.media[0].file);
+          // Prefer is_primary image, fall back to first.
+          const primary = res.data.media.find((m) => m.is_primary) || res.data.media[0];
+          setSelectedPhoto(primary.url);
         } else {
           setSelectedPhoto('https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80');
         }
@@ -83,10 +85,10 @@ const ListingDetail = () => {
               {listing.media.map((item) => (
                 <img
                   key={item.id}
-                  src={item.file}
+                  src={item.url}
                   alt="thumbnail"
-                  onClick={() => setSelectedPhoto(item.file)}
-                  className={`${styles.thumbnail} ${selectedPhoto === item.file ? styles.thumbnailActive : ''}`}
+                  onClick={() => setSelectedPhoto(item.url)}
+                  className={`${styles.thumbnail} ${selectedPhoto === item.url ? styles.thumbnailActive : ''}`}
                 />
               ))}
             </div>

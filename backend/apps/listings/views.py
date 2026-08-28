@@ -1,69 +1,146 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Q
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
-from django.db.models import Q
-from .models import Listing, ListingStatus, ListingType
-from .serializers import ListingSerializer, ListingCreateSerializer
+
+from .models import Listing, ListingStatus
+from .serializers import (
+    ListingSerializer,
+    ListingCreateSerializer,
+    MediaUploadResponseSerializer,
+)
+from .services import MediaUploadService
+
 
 class ListingViewSet(viewsets.ModelViewSet):
-    queryset = Listing.objects.filter(status=ListingStatus.ACTIVE).prefetch_related('media').select_related('project', 'developer', 'seller').order_by('-published_at', '-created_at')
+    """ViewSet for Listing CRUD and media upload.
+
+    Endpoints
+    ---------
+    GET    /api/listings/               – public list (active only)
+    POST   /api/listings/               – create a new resale listing (auth required)
+    GET    /api/listings/{id}/          – retrieve a single listing
+    POST   /api/listings/{id}/upload-media/  – upload images for a listing (auth required)
+    GET    /api/listings/my-listings/   – authenticated seller's own listings
+    """
+
+    queryset = (
+        Listing.objects
+        .filter(status=ListingStatus.ACTIVE)
+        .prefetch_related('media')
+        .select_related('project', 'developer', 'seller')
+        .order_by('-published_at', '-created_at')
+    )
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    # ── Serializer selection ──────────────────────────────────────────────────
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
             return ListingCreateSerializer
         return ListingSerializer
 
+    # ── Queryset filtering ────────────────────────────────────────────────────
+
     def get_queryset(self):
         if self.action == 'my_listings':
             return Listing.objects.filter(seller=self.request.user).order_by('-created_at')
-            
+
         qs = super().get_queryset()
         params = self.request.query_params
 
-        listing_type = params.get('type')
-        project = params.get('project')
-        governorate = params.get('governorate')
-        city = params.get('city')
-        district = params.get('district')
-        min_price = params.get('min_price')
-        max_price = params.get('max_price')
-        bedrooms = params.get('bedrooms')
-        finishing = params.get('finishing')
-        has_installments = params.get('has_installments')
+        filters = {
+            'type':           ('type',              None),
+            'project':        ('project_id',        None),
+            'governorate':    ('governorate__iexact', None),
+            'city':           ('city__iexact',       None),
+            'district':       ('district__iexact',   None),
+            'min_price':      ('asking_price__gte',  None),
+            'max_price':      ('asking_price__lte',  None),
+            'bedrooms':       ('bedrooms',           None),
+            'finishing':      ('finishing',          None),
+        }
 
-        if listing_type:
-            qs = qs.filter(type=listing_type)
-        if project:
-            qs = qs.filter(project_id=project)
-        if governorate:
-            qs = qs.filter(governorate__iexact=governorate)
-        if city:
-            qs = qs.filter(city__iexact=city)
-        if district:
-            qs = qs.filter(district__iexact=district)
-        if min_price:
-            qs = qs.filter(asking_price__gte=min_price)
-        if max_price:
-            qs = qs.filter(asking_price__lte=max_price)
-        if bedrooms:
-            qs = qs.filter(bedrooms=bedrooms)
-        if finishing:
-            qs = qs.filter(finishing=finishing)
-        if has_installments and has_installments.lower() in ['true', '1']:
+        for param, (field, _) in filters.items():
+            value = params.get(param)
+            if value:
+                qs = qs.filter(**{field: value})
+
+        if params.get('has_installments', '').lower() in ('true', '1'):
             qs = qs.filter(installment_plan__isnull=False)
 
         return qs
+
+    # ── Create listing ────────────────────────────────────────────────────────
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         listing = serializer.save()
-        output_serializer = ListingSerializer(listing)
-        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+        output = ListingSerializer(listing, context={'request': request})
+        return Response(output.data, status=status.HTTP_201_CREATED)
 
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='my-listings')
+    # ── Upload media ──────────────────────────────────────────────────────────
+
+    @action(
+        detail=True,
+        methods=['post'],
+        permission_classes=[permissions.IsAuthenticated],
+        parser_classes=[MultiPartParser, FormParser],
+        url_path='upload-media',
+    )
+    def upload_media(self, request, pk=None):
+        """Upload one or more image files for an existing listing.
+
+        Accepts ``multipart/form-data`` with field name ``images`` (repeatable).
+        Only the listing's owner may upload media.
+        """
+        # Fetch directly — the base queryset is ACTIVE-only, but the seller
+        # needs to upload media while the listing is still UNDER_REVIEW.
+        try:
+            listing = Listing.objects.get(pk=pk)
+        except Listing.DoesNotExist:
+            return Response({'detail': 'Listing not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Ownership check — only the seller can add images.
+        if listing.seller != request.user:
+            return Response(
+                {'detail': 'You do not have permission to upload media for this listing.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        files = request.FILES.getlist('images')
+        if not files:
+            return Response(
+                {'detail': 'No images provided. Send files under the key "images".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            service = MediaUploadService(listing)
+            media_list = service.upload(files)
+        except DjangoValidationError as exc:
+            return Response(
+                {'detail': exc.message},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = MediaUploadResponseSerializer(
+            media_list, many=True, context={'request': request}
+        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    # ── My listings ───────────────────────────────────────────────────────────
+
+    @action(
+        detail=False,
+        methods=['get'],
+        permission_classes=[permissions.IsAuthenticated],
+        url_path='my-listings',
+    )
     def my_listings(self, request):
         qs = Listing.objects.filter(seller=request.user).order_by('-created_at')
-        serializer = ListingSerializer(qs, many=True)
+        serializer = ListingSerializer(qs, many=True, context={'request': request})
         return Response(serializer.data)

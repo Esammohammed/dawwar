@@ -1,19 +1,154 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, UploadCloud, X, ImagePlus } from 'lucide-react';
 import api from '../api/client';
 import { useAuthStore } from '../stores/authStore';
 import { useTranslation } from '../i18n/i18nContext';
 import { GovernorateSelect, CitySelect } from '../components/LocationSelects';
 import styles from './SellYourUnit.module.css';
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const MAX_IMAGES = 10;
+const MAX_FILE_SIZE_MB = 10;
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+// ─── ImageUploadZone ─────────────────────────────────────────────────────────
+
+/**
+ * Drag-and-drop / click-to-browse image upload zone.
+ * Manages local preview URLs; actual upload happens on form submit.
+ */
+const ImageUploadZone = ({ files, onChange }) => {
+  const { t } = useTranslation();
+  const inputRef = useRef(null);
+  const [dragging, setDragging] = useState(false);
+
+  const addFiles = useCallback(
+    (incoming) => {
+      const valid = [];
+      const errors = [];
+
+      for (const file of incoming) {
+        if (!ALLOWED_TYPES.includes(file.type)) {
+          errors.push(`"${file.name}" is not a supported format (JPEG, PNG, WebP only).`);
+          continue;
+        }
+        if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+          errors.push(`"${file.name}" exceeds ${MAX_FILE_SIZE_MB} MB.`);
+          continue;
+        }
+        if (files.length + valid.length >= MAX_IMAGES) {
+          errors.push(`Maximum ${MAX_IMAGES} images allowed.`);
+          break;
+        }
+        valid.push(file);
+      }
+
+      if (errors.length) alert(errors.join('\n'));
+      if (valid.length) onChange([...files, ...valid]);
+    },
+    [files, onChange]
+  );
+
+  const removeFile = (index) => {
+    const next = files.filter((_, i) => i !== index);
+    onChange(next);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    addFiles(Array.from(e.dataTransfer.files));
+  };
+
+  const handleInputChange = (e) => {
+    addFiles(Array.from(e.target.files));
+    // Reset input so the same file can be re-selected after removal.
+    e.target.value = '';
+  };
+
+  return (
+    <div className={styles.uploadSection}>
+      {/* Drop zone */}
+      <div
+        className={`${styles.dropZone} ${dragging ? styles.dropZoneDragging : ''}`}
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
+        aria-label={t('sell.uploadZoneLabel')}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept={ALLOWED_TYPES.join(',')}
+          multiple
+          className={styles.hiddenInput}
+          onChange={handleInputChange}
+        />
+        <UploadCloud className={styles.uploadIcon} size={40} />
+        <p className={styles.uploadPrimary}>{t('sell.uploadPrimary')}</p>
+        <p className={styles.uploadSecondary}>
+          {t('sell.uploadSecondary', { max: MAX_IMAGES, size: MAX_FILE_SIZE_MB })}
+        </p>
+      </div>
+
+      {/* Preview grid */}
+      {files.length > 0 && (
+        <div className={styles.previewGrid}>
+          {files.map((file, index) => (
+            <div key={index} className={styles.previewItem}>
+              <img
+                src={URL.createObjectURL(file)}
+                alt={file.name}
+                className={styles.previewImg}
+              />
+              {index === 0 && (
+                <span className={styles.primaryBadge}>{t('sell.primaryBadge')}</span>
+              )}
+              <button
+                type="button"
+                className={styles.removeBtn}
+                onClick={() => removeFile(index)}
+                aria-label={`Remove ${file.name}`}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+
+          {files.length < MAX_IMAGES && (
+            <button
+              type="button"
+              className={styles.addMoreBtn}
+              onClick={() => inputRef.current?.click()}
+              aria-label={t('sell.addMore')}
+            >
+              <ImagePlus size={24} />
+              <span>{t('sell.addMore')}</span>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── SellYourUnit ─────────────────────────────────────────────────────────────
+
 const SellYourUnit = () => {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const navigate = useNavigate();
+
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [imageFiles, setImageFiles] = useState([]);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -31,7 +166,6 @@ const SellYourUnit = () => {
     transfer_fee: 25000,
     quarterly_installment: 25000,
     description: '',
-    photo_url: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=600&q=80',
   });
 
   const handleChange = (e) => {
@@ -40,9 +174,10 @@ const SellYourUnit = () => {
   };
 
   const handleGovernorateChange = (e) => {
-    const { value } = e.target;
-    setFormData((prev) => ({ ...prev, governorate: value, city: '' }));
+    setFormData((prev) => ({ ...prev, governorate: e.target.value, city: '' }));
   };
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -55,7 +190,8 @@ const SellYourUnit = () => {
     setError('');
 
     try {
-      await api.post('/listings/', {
+      // 1️⃣  Create the listing with structured JSON data.
+      const { data: listing } = await api.post('/listings/', {
         type: 'resale',
         title: formData.title,
         governorate: formData.governorate,
@@ -71,32 +207,41 @@ const SellYourUnit = () => {
         amount_paid: parseFloat(formData.amount_paid),
         transfer_fee: parseFloat(formData.transfer_fee),
         installment_plan: {
-          quarterly_installment: parseFloat(formData.quarterly_installment)
+          quarterly_installment: parseFloat(formData.quarterly_installment),
         },
         description: formData.description,
-        uploaded_media: [formData.photo_url]
       });
+
+      // 2️⃣  Upload images separately if any were selected.
+      if (imageFiles.length > 0) {
+        const formPayload = new FormData();
+        imageFiles.forEach((file) => formPayload.append('images', file));
+
+        await api.post(`/listings/${listing.id}/upload-media/`, formPayload, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      }
 
       setStep(4);
     } catch (err) {
       console.error('Error creating resale listing:', err);
-      setError('Failed to save listing. Please check required fields.');
+      const detail = err?.response?.data?.detail;
+      setError(detail || 'Failed to save listing. Please check required fields.');
     } finally {
       setLoading(false);
     }
   };
 
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   return (
     <div className={styles.page}>
-      
       <div className={styles.pageHeader}>
         <h1 className={styles.title}>{t('sell.title')}</h1>
         <p className={styles.subtitle}>{t('sell.subtitle')}</p>
       </div>
 
-      {error && (
-        <div className={styles.errorBox}>{error}</div>
-      )}
+      {error && <div className={styles.errorBox}>{error}</div>}
 
       {step === 4 ? (
         <div className={styles.successCard}>
@@ -109,7 +254,8 @@ const SellYourUnit = () => {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className={styles.formCard}>
-          
+
+          {/* ── Step 1: Unit Details ── */}
           {step === 1 && (
             <div>
               <h3 className={styles.stepTitle}>{t('sell.step1Title')}</h3>
@@ -191,6 +337,7 @@ const SellYourUnit = () => {
             </div>
           )}
 
+          {/* ── Step 2: Financials ── */}
           {step === 2 && (
             <div>
               <h3 className={styles.stepTitle}>{t('sell.step2Title')}</h3>
@@ -252,19 +399,14 @@ const SellYourUnit = () => {
             </div>
           )}
 
+          {/* ── Step 3: Photos & Description ── */}
           {step === 3 && (
             <div>
               <h3 className={styles.stepTitle}>{t('sell.step3Title')}</h3>
 
               <div className={styles.field}>
-                <label className={styles.label}>{t('sell.photoUrlLabel')}</label>
-                <input
-                  type="text"
-                  name="photo_url"
-                  value={formData.photo_url}
-                  onChange={handleChange}
-                  className={styles.input}
-                />
+                <label className={styles.label}>{t('sell.photosLabel')}</label>
+                <ImageUploadZone files={imageFiles} onChange={setImageFiles} />
               </div>
 
               <div className={styles.field}>
@@ -292,7 +434,6 @@ const SellYourUnit = () => {
 
         </form>
       )}
-
     </div>
   );
 };
