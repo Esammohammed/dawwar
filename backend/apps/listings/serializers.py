@@ -25,8 +25,18 @@ class ListingSerializer(serializers.ModelSerializer):
     media = MediaSerializer(many=True, read_only=True)
     project_details = ProjectSerializer(source='project', read_only=True)
     developer_details = DeveloperSerializer(source='developer', read_only=True)
-    seller_phone = serializers.CharField(source='seller.phone', read_only=True)
-    seller_name = serializers.CharField(source='seller.full_name', read_only=True)
+    seller_phone = serializers.SerializerMethodField()
+    seller_name = serializers.SerializerMethodField()
+
+    def get_seller_phone(self, obj):
+        if obj.type == ListingType.SCRAPED and obj.source_seller_phone:
+            return obj.source_seller_phone
+        return obj.seller.phone if obj.seller else None
+
+    def get_seller_name(self, obj):
+        if obj.type == ListingType.SCRAPED and obj.source_seller_name:
+            return obj.source_seller_name
+        return obj.seller.full_name if obj.seller else None
 
     class Meta:
         model = Listing
@@ -35,7 +45,8 @@ class ListingSerializer(serializers.ModelSerializer):
             'developer', 'developer_details', 'title', 'description', 'area_sqm', 'bedrooms',
             'bathrooms', 'floor', 'finishing', 'unit_attributes', 'governorate', 'city', 'district',
             'asking_price', 'currency', 'negotiable', 'original_price', 'amount_paid', 'transfer_fee',
-            'installment_plan', 'status', 'published_at', 'created_at', 'media'
+            'installment_plan', 'status', 'published_at', 'created_at', 'media',
+            'source_site', 'source_url'
         ]
 
 
@@ -65,6 +76,30 @@ class ListingCreateSerializer(serializers.ModelSerializer):
             type=ListingType.RESALE,
             status=ListingStatus.UNDER_REVIEW,
             **validated_data,
+        )
+
+
+class ScrapedListingCreateSerializer(serializers.ModelSerializer):
+    """Serializer used by the scraper microservice to import listings."""
+    type = serializers.CharField(read_only=True)
+    
+    class Meta:
+        model = Listing
+        fields = [
+            'type', 'title', 'description', 'area_sqm', 'bedrooms',
+            'bathrooms', 'floor', 'finishing', 'unit_attributes', 'governorate', 'city',
+            'district', 'asking_price', 'currency', 'negotiable',
+            'source_site', 'source_url', 'source_seller_name', 'source_seller_phone'
+        ]
+
+    def create(self, validated_data: dict) -> Listing:
+        user = self.context['request'].user
+        validated_data.pop('type', None)
+        return Listing.objects.create(
+            seller=user,
+            type=ListingType.SCRAPED,
+            status=ListingStatus.ACTIVE,  # Auto-activate scraped listings
+            **validated_data
         )
 
 

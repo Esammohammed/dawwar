@@ -8,6 +8,7 @@ from apps.developers.models import Developer
 class ListingType(models.TextChoices):
     RESALE = 'resale', 'Resale'
     DEVELOPER_UNIT = 'developer_unit', 'Developer Unit'
+    SCRAPED = 'scraped', 'Scraped from Web'
 
 class FinishingType(models.TextChoices):
     CORE_SHELL = 'core_shell', 'Core & Shell (طوب أحمر)'
@@ -61,6 +62,12 @@ class Listing(models.Model):
     transfer_fee = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
     installment_plan = models.JSONField(null=True, blank=True)
 
+    # Scraped Source Fields
+    source_site = models.CharField(max_length=50, null=True, blank=True, choices=[('propertyfinder', 'Property Finder'), ('dubizzle', 'Dubizzle')])
+    source_url = models.URLField(max_length=500, null=True, blank=True, unique=True)
+    source_seller_phone = models.CharField(max_length=50, null=True, blank=True)
+    source_seller_name = models.CharField(max_length=150, null=True, blank=True)
+
     # Workflow
     status = models.CharField(max_length=15, choices=ListingStatus.choices, default=ListingStatus.DRAFT)
     reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_listings')
@@ -80,7 +87,8 @@ class Listing(models.Model):
             models.CheckConstraint(
                 check=(
                     (Q(type='resale') & Q(seller__isnull=False)) |
-                    (Q(type='developer_unit') & Q(developer__isnull=False) & Q(project__isnull=False))
+                    (Q(type='developer_unit') & Q(developer__isnull=False) & Q(project__isnull=False)) |
+                    (Q(type='scraped') & Q(seller__isnull=False))
                 ),
                 name='chk_listing_owner'
             )

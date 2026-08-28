@@ -72,6 +72,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     telegram_id = models.CharField(max_length=50, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    # Marks the dedicated AI scraper bot account — grants access to scrape_import endpoint.
+    is_bot = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     objects = UserManager()

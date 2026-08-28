@@ -10,8 +10,15 @@ from .serializers import (
     ListingSerializer,
     ListingCreateSerializer,
     MediaUploadResponseSerializer,
+    ScrapedListingCreateSerializer,
 )
 from .services import MediaUploadService
+
+
+class IsScraperBot(permissions.BasePermission):
+    """Allows access only to the dedicated AI scraper bot."""
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and request.user.is_bot)
 
 
 class ListingViewSet(viewsets.ModelViewSet):
@@ -144,3 +151,19 @@ class ListingViewSet(viewsets.ModelViewSet):
         qs = Listing.objects.filter(seller=request.user).order_by('-created_at')
         serializer = ListingSerializer(qs, many=True, context={'request': request})
         return Response(serializer.data)
+
+    # ── Scraper Import ────────────────────────────────────────────────────────
+
+    @action(
+        detail=False,
+        methods=['post'],
+        permission_classes=[IsScraperBot],
+        url_path='scrape-import',
+    )
+    def scrape_import(self, request):
+        """Endpoint for the scraper microservice to import scraped listings."""
+        serializer = ScrapedListingCreateSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        listing = serializer.save()
+        output = ListingSerializer(listing, context={'request': request})
+        return Response(output.data, status=status.HTTP_201_CREATED)
