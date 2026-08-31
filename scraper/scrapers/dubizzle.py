@@ -29,7 +29,9 @@ class DubizzleScraper(BaseScraper):
                     logger.info(f"Fetching Dubizzle Page {page_num}: {url}")
                     
                     page = await context.new_page()
-                    await page.goto(url, wait_until="networkidle")
+                    # Use domcontentloaded instead of networkidle to prevent timeouts from tracking scripts
+                    await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                    await page.wait_for_timeout(3000)
                     
                     # Extract listing URLs from the search results page
                     content = await page.content()
@@ -58,7 +60,8 @@ class DubizzleScraper(BaseScraper):
     async def _scrape_listing_detail(self, context: BrowserContext, url: str) -> Dict[str, Any] | None:
         page = await context.new_page()
         try:
-            await page.goto(url, wait_until="networkidle")
+            await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            await page.wait_for_timeout(2000)
             
             # Click "Show phone number" button
             phone = ""

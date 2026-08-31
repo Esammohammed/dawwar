@@ -11,6 +11,8 @@ from publisher.dawwar_client import DawwarClient
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+import json
+
 class ScraperPipeline:
     def __init__(self):
         self.store = SeenURLStore()
@@ -24,9 +26,13 @@ class ScraperPipeline:
         
         async for raw_listing in scraper.scrape(max_pages=max_pages):
             try:
+                logger.info("--- NEW LISTING FOUND ---")
+                logger.info(f"RAW IMAGE URLS FOUND: {raw_listing.get('image_urls')}")
+                logger.debug(f"FULL RAW DATA: {json.dumps(raw_listing, indent=2, ensure_ascii=False)}")
+                
                 # 1. Normalize
                 normalized = await self.normalizer.normalize(raw_listing)
-                logger.info(f"Normalized: {normalized.get('title')}")
+                logger.info(f"NORMALIZED OUTPUT: {json.dumps(normalized, indent=2, ensure_ascii=False)}")
                 
                 # 2. Publish JSON
                 listing_id = await self.client.publish_listing(normalized)

@@ -12,12 +12,14 @@ Given a raw property listing (which may be mixed English/Arabic), extract the da
 
 Rules:
 1. `governorate` MUST be one of: ["cairo", "giza", "alexandria", "qalyubia", "sharqia", "dakahlia", "beheira", "gharbia", "monufia", "kafr_el_sheikh", "damietta", "port_said", "ismailia", "suez", "north_sinai", "south_sinai", "red_sea", "matrouh", "new_valley", "fayoum", "beni_suef", "minya", "assiut", "sohag", "qena", "luxor", "aswan"]
-   (e.g., "New Cairo" -> governorate: "cairo", city: "New Cairo". "Sheikh Zayed" -> governorate: "giza", city: "Sheikh Zayed City". "North Coast / Sahel" -> governorate: "matrouh").
-2. `finishing` MUST be one of: ["core_shell", "semi", "fully", "lux"] or null. If it says "fully finished", use "fully". If "super lux", use "lux".
-3. `asking_price` MUST be an integer. Remove commas/currencies. If it says "1.5 million", use 1500000.
-4. `area_sqm` MUST be a number.
-5. If `bedrooms` or `bathrooms` are missing, infer from text if possible, else 0.
-6. Return ONLY valid JSON, nothing else. No markdown formatting.
+   (e.g., "New Cairo" -> governorate: "cairo", city: "New Cairo". "Sheikh Zayed" -> governorate: "giza", city: "Sheikh Zayed City". "North Coast / Sahel" -> governorate: "matrouh", city: "North Coast". "Hurghada" -> governorate: "red_sea", city: "Hurghada".).
+2. `city` is REQUIRED. Always provide a city name string. If unsure, use the most specific location name available (compound name, district, etc).
+3. `finishing` MUST be one of: ["core_shell", "semi", "fully", "lux"] or null. If it says "fully finished", use "fully". If "super lux", use "lux".
+4. `asking_price` MUST be an integer. Remove commas/currencies. If it says "1.5 million", use 1500000.
+5. `area_sqm` MUST be a number.
+6. If `bedrooms` or `bathrooms` are missing, infer from text if possible, else 0.
+7. `property_type` is REQUIRED. Extract the property type (e.g., "Apartment", "Chalet", "Villa", "Townhouse", "Penthouse", "Twin House", "Duplex"). If missing, infer it from the title or description.
+8. Return ONLY valid JSON, nothing else. No markdown formatting.
 """
 
 class OpenAINormalizer:
@@ -42,6 +44,7 @@ class OpenAINormalizer:
                 "description": raw_listing.get("description") or "Mock Description",
                 "governorate": "cairo",
                 "city": "New Cairo",
+                "property_type": raw_listing.get("property_type") or "Apartment",
                 "area_sqm": raw_listing.get("area_sqm") or 100,
                 "bedrooms": raw_listing.get("bedrooms") or 2,
                 "bathrooms": raw_listing.get("bathrooms") or 1,
@@ -76,5 +79,23 @@ class OpenAINormalizer:
         # Fallback if OpenAI missed the title
         if not normalized.get('title'):
             normalized['title'] = raw_listing.get('title') or "Scraped Property"
+            
+        # Fallback if OpenAI missed property_type
+        if not normalized.get('property_type'):
+            normalized['property_type'] = raw_listing.get('property_type') or "Unknown"
+        
+        # Fallback if OpenAI missed the city — extract from raw_address
+        if not normalized.get('city'):
+            raw_addr = raw_listing.get('raw_address', '')
+            if raw_addr:
+                # Use the first part of the address as city
+                parts = [p.strip() for p in raw_addr.split(',')]
+                normalized['city'] = parts[-1] if parts else "Unknown"
+            else:
+                normalized['city'] = "Unknown"
+        
+        # Fallback if OpenAI missed governorate
+        if not normalized.get('governorate'):
+            normalized['governorate'] = "cairo"
             
         return normalized

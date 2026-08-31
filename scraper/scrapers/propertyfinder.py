@@ -1,147 +1,186 @@
-import httpx
-import json
 import logging
-from bs4 import BeautifulSoup
+import asyncio
+import json
 from typing import AsyncGenerator, Dict, Any
+from bs4 import BeautifulSoup
+from playwright.async_api import async_playwright, Page
+from playwright_stealth import Stealth
 
 from .base import BaseScraper
 from storage.seen_urls import SeenURLStore
 
 logger = logging.getLogger(__name__)
 
+BOT_DETECTION_PHRASES = ["confirm you are human", "human verification", "security check"]
+
+
 class PropertyFinderScraper(BaseScraper):
+    """
+    Scrapes PropertyFinder.eg by extracting structured listing data
+    directly from the Next.js __NEXT_DATA__ JSON embedded in the search
+    results page. This avoids visiting individual detail pages (which are
+    protected by Cloudflare Turnstile bot detection).
+    """
+
     BASE_URL = "https://www.propertyfinder.eg"
     START_URL = "https://www.propertyfinder.eg/en/buy/properties-for-sale.html"
 
     def __init__(self, store: SeenURLStore):
         self.store = store
-        self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
-        }
+        self.stealth = Stealth()
 
-    async def fetch_phone(self, client: httpx.AsyncClient, agent_id: str) -> str:
-        # e.g. agent_id: "george-mallak-30714"
-        url = f"{self.BASE_URL}/en/agent/{agent_id}/phone/"
+    def _is_bot_blocked(self, soup: BeautifulSoup) -> bool:
+        title = soup.title.string.lower() if soup.title and soup.title.string else ""
+        return any(phrase in title for phrase in BOT_DETECTION_PHRASES)
+
+    async def _wait_for_challenge(self, page: Page, max_wait: int = 60) -> bool:
+        """Wait for bot challenge to clear (user may need to click manually)."""
+        logger.warning("Bot challenge detected! Waiting up to %ds for it to clear...", max_wait)
+        for _ in range(max_wait):
+            await page.wait_for_timeout(1000)
+            content = await page.content()
+            soup = BeautifulSoup(content, "html.parser")
+            if not self._is_bot_blocked(soup):
+                logger.info("Challenge cleared!")
+                return True
+        logger.warning("Challenge did NOT clear after %ds.", max_wait)
+        return False
+
+    def _extract_listings_from_next_data(self, soup: BeautifulSoup) -> list[Dict[str, Any]]:
+        """Parse the __NEXT_DATA__ script and pull structured listing data."""
+        next_data_tag = soup.find("script", id="__NEXT_DATA__")
+        if not next_data_tag or not next_data_tag.string:
+            logger.warning("No __NEXT_DATA__ found on page")
+            return []
+
         try:
-            resp = await client.get(url, headers=self.headers)
-            if resp.status_code == 200:
-                data = resp.json()
-                return data.get('data', {}).get('phone', '')
-        except Exception:
-            pass
-        return ""
+            data = json.loads(next_data_tag.string)
+            listings = (
+                data.get("props", {})
+                .get("pageProps", {})
+                .get("searchResult", {})
+                .get("listings", [])
+            )
+        except (json.JSONDecodeError, AttributeError) as e:
+            logger.error("Failed to parse __NEXT_DATA__: %s", e)
+            return []
 
-    async def scrape(self, max_pages: int = 10) -> AsyncGenerator[Dict[str, Any], None]:
-        async with httpx.AsyncClient() as client:
-            for page in range(1, max_pages + 1):
-                url = f"{self.START_URL}?page={page}"
-                logger.info(f"Fetching PropertyFinder Page {page}: {url}")
-                
-                try:
-                    resp = await client.get(url, headers=self.headers)
-                    resp.raise_for_status()
-                except Exception as e:
-                    logger.error(f"Failed to fetch {url}: {e}")
-                    break
+        results = []
+        for entry in listings:
+            prop = entry.get("property", {})
+            if not prop:
+                continue
 
-                soup = BeautifulSoup(resp.text, 'html.parser')
-                schema_tag = soup.find('script', id='serp-schema')
-                
-                if not schema_tag:
-                    logger.warning("No JSON-LD schema found on page")
-                    continue
-                
-                try:
-                    schema_data = json.loads(schema_tag.string)
-                except json.JSONDecodeError:
-                    continue
+            # Build the canonical detail URL
+            details_path = prop.get("details_path", "")
+            source_url = f"{self.BASE_URL}{details_path}" if details_path else prop.get("share_url", "")
 
-                # Find the search results page schema
-                results = None
-                for graph_item in schema_data.get('@graph', []):
-                    if '@type' in graph_item and 'SearchResultsPage' in graph_item['@type']:
-                        results = graph_item.get('mainEntity', {}).get('itemListElement', [])
-                        break
-                        
-                if not results:
-                    break
+            if not source_url or self.store.is_seen(source_url):
+                continue
 
-                for item in results:
-                    listing_url = item.get('url')
-                    if not listing_url or self.store.is_seen(listing_url):
-                        continue
-                    
-                    raw = await self._scrape_listing_detail(client, listing_url)
-                    if raw:
-                        self.store.add(listing_url)
+            # Price
+            price_obj = prop.get("price", {})
+            asking_price = price_obj.get("value", 0)
+            currency = price_obj.get("currency", "EGP")
+
+            # Location
+            location = prop.get("location", {})
+            full_address = location.get("full_name", "")
+
+            # Images — grab medium-quality versions
+            images = []
+            for img in prop.get("images", []):
+                url = img.get("medium") or img.get("small")
+                if url:
+                    images.append(url)
+
+            # Agent / Broker info
+            agent = prop.get("agent", {})
+            broker = prop.get("broker", {})
+            seller_name = agent.get("name", "") or broker.get("name", "")
+            seller_phone = broker.get("phone", "")
+
+            # Size
+            size_obj = prop.get("size", {})
+            area_sqm = size_obj.get("value", 0) if isinstance(size_obj, dict) else 0
+
+            raw = {
+                "source_site": "propertyfinder",
+                "source_url": source_url,
+                "title": prop.get("title", ""),
+                "description": prop.get("description", ""),
+                "raw_price": str(asking_price),
+                "raw_address": full_address,
+                "asking_price": asking_price,
+                "currency": currency,
+                "area_sqm": area_sqm,
+                "bedrooms": prop.get("bedrooms", 0),
+                "bathrooms": prop.get("bathrooms", 0),
+                "property_type": prop.get("property_type", ""),
+                "source_seller_name": seller_name,
+                "source_seller_phone": seller_phone,
+                "image_urls": images,
+            }
+            results.append(raw)
+
+        return results
+
+    async def scrape(self, max_pages: int = 5) -> AsyncGenerator[Dict[str, Any], None]:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context(
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/121.0.0.0 Safari/537.36"
+                ),
+                locale="en-US",
+                viewport={"width": 1280, "height": 800},
+            )
+            page = await context.new_page()
+            await self.stealth.apply_stealth_async(page)
+
+            try:
+                for page_num in range(1, max_pages + 1):
+                    url = f"{self.START_URL}?page={page_num}"
+                    logger.info("Fetching PropertyFinder Page %d: %s", page_num, url)
+
+                    await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                    await page.wait_for_timeout(4000)
+
+                    content = await page.content()
+                    soup = BeautifulSoup(content, "html.parser")
+
+                    # Handle bot challenge
+                    if self._is_bot_blocked(soup):
+                        cleared = await self._wait_for_challenge(page, max_wait=60)
+                        if not cleared:
+                            logger.error("Bot challenge not cleared. Stopping.")
+                            break
+                        content = await page.content()
+                        soup = BeautifulSoup(content, "html.parser")
+
+                    # Extract all listings from the embedded JSON
+                    raw_listings = self._extract_listings_from_next_data(soup)
+                    logger.info(
+                        "Page %d: extracted %d new listings from __NEXT_DATA__",
+                        page_num,
+                        len(raw_listings),
+                    )
+
+                    for raw in raw_listings:
+                        logger.info(
+                            "SCRAPED: title='%s', price=%s %s, images=%d, loc='%s'",
+                            raw["title"][:60],
+                            raw["asking_price"],
+                            raw.get("currency", ""),
+                            len(raw["image_urls"]),
+                            raw["raw_address"],
+                        )
+                        self.store.add(raw["source_url"])
                         yield raw
 
-    async def _scrape_listing_detail(self, client: httpx.AsyncClient, url: str) -> Dict[str, Any] | None:
-        try:
-            resp = await client.get(url, headers=self.headers)
-            resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            
-            # Get the structured schema from detail page
-            schema_tag = None
-            for script in soup.find_all('script', type='application/ld+json'):
-                if 'RealEstateListing' in script.string:
-                    schema_tag = script
-                    break
-                    
-            if not schema_tag:
-                return None
-                
-            schema = json.loads(schema_tag.string)
-            if isinstance(schema, list):
-                schema = schema[0]
-
-            agent_url = schema.get('offers', {}).get('seller', {}).get('@id', '')
-            agent_id = agent_url.split('/')[-1] if agent_url else ''
-            
-            phone = ""
-            if agent_id:
-                phone = await self.fetch_phone(client, agent_id)
-
-            images = []
-            img_objs = schema.get('image', [])
-            if isinstance(img_objs, list):
-                for img in img_objs:
-                    if isinstance(img, dict):
-                        images.append(img.get('url'))
-                    elif isinstance(img, str):
-                        images.append(img)
-            elif isinstance(img_objs, dict):
-                images.append(img_objs.get('url'))
-            elif isinstance(img_objs, str):
-                images.append(img_objs)
-
-            # Some schemas bury the photos inside a 'photo' array
-            if not images and 'photo' in schema:
-                photo_objs = schema['photo']
-                if isinstance(photo_objs, list):
-                    for p in photo_objs:
-                        if isinstance(p, dict):
-                            images.append(p.get('image') or p.get('url'))
-                        elif isinstance(p, str):
-                            images.append(p)
-
-            return {
-                "source_site": "propertyfinder",
-                "source_url": url,
-                "title": schema.get('name', ''),
-                "description": schema.get('description', ''),
-                "raw_price": schema.get('offers', {}).get('price', 0),
-                "raw_address": schema.get('address', {}),
-                "area_sqm": schema.get('floorSize', {}).get('value'),
-                "bedrooms": schema.get('numberOfBedrooms'),
-                "bathrooms": schema.get('numberOfBathroomsTotal'),
-                "amenities": [f.get('name') for f in schema.get('amenityFeature', [])],
-                "source_seller_name": agent_url.split('/')[-1].replace('-', ' ').title() if agent_url else '',
-                "source_seller_phone": phone,
-                "image_urls": [img for img in images if img]
-            }
-        except Exception as e:
-            logger.error(f"Failed to scrape detail {url}: {e}")
-            return None
+                    # Polite delay between pages
+                    await asyncio.sleep(3)
+            finally:
+                await browser.close()
