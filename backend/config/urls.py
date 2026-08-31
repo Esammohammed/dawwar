@@ -14,6 +14,7 @@ urlpatterns = [
     path('api/announcements/', include('apps.govfeed.urls')),
     path('api/listings/', include('apps.listings.urls')),
     path('api/applications/', include('apps.applications.urls')),
+    path('api/exit-deals/', include('apps.exit_deals.urls')),
     path('api/', include('apps.engagement.urls')),
     path('api/me/', include('apps.accounts.me_urls')),
 

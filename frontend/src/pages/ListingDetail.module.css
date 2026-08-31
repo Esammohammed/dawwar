@@ -147,6 +147,7 @@
 .descText {
   line-height: 1.8;
   color: var(--text-soft);
+  white-space: pre-wrap;
 }
 
 /* ---- Installment calculator box ---- */

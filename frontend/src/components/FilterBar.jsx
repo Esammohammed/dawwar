@@ -8,7 +8,7 @@ import styles from './FilterBar.module.css';
 const FilterBar = ({ onSearch }) => {
   const { t } = useTranslation();
   const {
-    type, governorate, city, minPrice, maxPrice, bedrooms, finishing, hasInstallments,
+    type, propertyType, governorate, city, minPrice, maxPrice, bedrooms, finishing, hasInstallments, is_verified_exit,
     setFilter, resetFilters
   } = useFilterStore();
 
@@ -28,8 +28,22 @@ const FilterBar = ({ onSearch }) => {
         
         <div className={styles.fieldGroup}>
           <label className={styles.label}>{t('filter.propertyType')}</label>
-          <select value={type} onChange={(e) => setFilter('type', e.target.value)} className={styles.select}>
+          <select value={propertyType} onChange={(e) => setFilter('propertyType', e.target.value)} className={styles.select}>
             <option value="">{t('filter.allTypes')}</option>
+            <option value="Apartment">Apartment</option>
+            <option value="Villa">Villa</option>
+            <option value="Townhouse">Townhouse</option>
+            <option value="Penthouse">Penthouse</option>
+            <option value="Chalet">Chalet</option>
+            <option value="Twin House">Twin House</option>
+            <option value="Duplex">Duplex</option>
+          </select>
+        </div>
+
+        <div className={styles.fieldGroup}>
+          <label className={styles.label}>{t('filter.listingType')}</label>
+          <select value={type} onChange={(e) => setFilter('type', e.target.value)} className={styles.select}>
+            <option value="">{t('filter.allStatuses')}</option>
             <option value="resale">{t('filter.resale')}</option>
             <option value="developer_unit">{t('filter.developerUnit')}</option>
           </select>
@@ -87,6 +101,17 @@ const FilterBar = ({ onSearch }) => {
             className={styles.checkbox}
           />
           <label htmlFor="installments" className={styles.label}>{t('filter.installmentsOnly')}</label>
+        </div>
+
+        <div className={styles.checkboxGroup}>
+          <input
+            type="checkbox"
+            id="verifiedExit"
+            checked={is_verified_exit}
+            onChange={(e) => setFilter('is_verified_exit', e.target.checked)}
+            className={styles.checkbox}
+          />
+          <label htmlFor="verifiedExit" className={styles.label}>{t('exitDeals.filterLabel')}</label>
         </div>
 
         <div className={styles.btnGroup}>

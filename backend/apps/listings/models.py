@@ -37,6 +37,7 @@ class Listing(models.Model):
     developer = models.ForeignKey(Developer, on_delete=models.PROTECT, null=True, blank=True, related_name='developer_listings')
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True, null=True)
+    property_type = models.CharField(max_length=50, null=True, blank=True)
 
     # Unit Facts
     area_sqm = models.DecimalField(max_digits=7, decimal_places=2)

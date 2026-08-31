@@ -44,6 +44,9 @@ const Navbar = () => {
               <FolderKanban size={18} />
               {t('nav.projects')}
             </Link>
+            <Link to="/exit" className={styles.navLink}>
+              {t('exitDeals.navLink')}
+            </Link>
             <Link to="/gov-news" className={styles.navLink}>
               <Newspaper size={18} />
               {t('nav.govNews')}

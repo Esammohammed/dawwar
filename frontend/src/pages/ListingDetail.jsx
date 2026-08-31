@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { MapPin, Bed, Bath, Maximize2, Layers, Phone, MessageSquare, ShieldCheck, Calculator } from 'lucide-react';
+import { MapPin, Bed, Bath, Maximize2, Layers, Phone, MessageSquare, ShieldCheck, Calculator, ExternalLink } from 'lucide-react';
 import api from '../api/client';
 import InquiryModal from '../components/InquiryModal';
 import BookingModal from '../components/BookingModal';
@@ -184,6 +184,13 @@ const ListingDetail = () => {
                 <ShieldCheck size={18} />
                 {t('detail.bookBtn')}
               </button>
+              
+              {listing.source_url && (
+                <a href={listing.source_url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '16px', color: 'var(--text-secondary, #666)', textDecoration: 'none', fontSize: '14px', fontWeight: '500' }}>
+                  <ExternalLink size={16} />
+                  View Original on {listing.source_site === 'propertyfinder' ? 'PropertyFinder' : listing.source_site || 'Source'}
+                </a>
+              )}
 
             </div>
 

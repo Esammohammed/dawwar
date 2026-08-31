@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'apps.listings',
     'apps.applications',
     'apps.engagement',
+    'apps.exit_deals',
 ]
 
 MIDDLEWARE = [
@@ -208,4 +209,7 @@ else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'Dawwar <noreply@dawwar.com>')
+
+# Exit Deals
+EXIT_DEFAULT_COMMISSION_RATE = 1.25
 

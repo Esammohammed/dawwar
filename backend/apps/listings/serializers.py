@@ -27,6 +27,7 @@ class ListingSerializer(serializers.ModelSerializer):
     developer_details = DeveloperSerializer(source='developer', read_only=True)
     seller_phone = serializers.SerializerMethodField()
     seller_name = serializers.SerializerMethodField()
+    exit_profile = serializers.SerializerMethodField()
 
     def get_seller_phone(self, obj):
         if obj.type == ListingType.SCRAPED and obj.source_seller_phone:
@@ -37,16 +38,31 @@ class ListingSerializer(serializers.ModelSerializer):
         if obj.type == ListingType.SCRAPED and obj.source_seller_name:
             return obj.source_seller_name
         return obj.seller.full_name if obj.seller else None
+        
+    def get_exit_profile(self, obj):
+        if not hasattr(obj, 'exit_profile') or obj.exit_profile is None:
+            return None
+            
+        from apps.exit_deals.models import VerificationStatus
+        from apps.exit_deals.serializers import ExitListingSerializer
+        
+        # Optionally, only show exit_profile if it is verified, 
+        # or just return the serialized data. The plan says "when a verified ExitListing exists".
+        if obj.exit_profile.verification_status != VerificationStatus.VERIFIED:
+            return None
+            
+        # We can just serialize it with the existing serializer which has the properties
+        return ExitListingSerializer(obj.exit_profile, context=self.context).data
 
     class Meta:
         model = Listing
         fields = [
             'id', 'type', 'project', 'project_details', 'seller', 'seller_name', 'seller_phone',
-            'developer', 'developer_details', 'title', 'description', 'area_sqm', 'bedrooms',
+            'developer', 'developer_details', 'title', 'description', 'property_type', 'area_sqm', 'bedrooms',
             'bathrooms', 'floor', 'finishing', 'unit_attributes', 'governorate', 'city', 'district',
             'asking_price', 'currency', 'negotiable', 'original_price', 'amount_paid', 'transfer_fee',
             'installment_plan', 'status', 'published_at', 'created_at', 'media',
-            'source_site', 'source_url'
+            'source_site', 'source_url', 'exit_profile'
         ]
 
 
@@ -60,7 +76,7 @@ class ListingCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Listing
         fields = [
-            'type', 'project', 'title', 'description', 'area_sqm', 'bedrooms',
+            'type', 'project', 'title', 'description', 'property_type', 'area_sqm', 'bedrooms',
             'bathrooms', 'floor', 'finishing', 'unit_attributes', 'governorate', 'city',
             'district', 'asking_price', 'currency', 'negotiable', 'original_price',
             'amount_paid', 'transfer_fee', 'installment_plan',
@@ -86,7 +102,7 @@ class ScrapedListingCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Listing
         fields = [
-            'type', 'title', 'description', 'area_sqm', 'bedrooms',
+            'type', 'title', 'description', 'property_type', 'area_sqm', 'bedrooms',
             'bathrooms', 'floor', 'finishing', 'unit_attributes', 'governorate', 'city',
             'district', 'asking_price', 'currency', 'negotiable',
             'source_site', 'source_url', 'source_seller_name', 'source_seller_phone'

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 const initialFilters = {
   type: '',
+  propertyType: '',
   governorate: '',
   city: '',
   minPrice: '',
@@ -9,6 +10,7 @@ const initialFilters = {
   bedrooms: '',
   finishing: '',
   hasInstallments: false,
+  is_verified_exit: false,
 };
 
 export const useFilterStore = create((set) => ({

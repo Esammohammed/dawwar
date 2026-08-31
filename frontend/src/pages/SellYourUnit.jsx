@@ -241,6 +241,12 @@ const SellYourUnit = () => {
         <p className={styles.subtitle}>{t('sell.subtitle')}</p>
       </div>
 
+      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', textAlign: 'center' }}>
+        <a href="/exit" style={{ color: '#166534', fontWeight: 600, textDecoration: 'none', display: 'block' }}>
+          {t('exitDeals.sellBanner')}
+        </a>
+      </div>
+
       {error && <div className={styles.errorBox}>{error}</div>}
 
       {step === 4 ? (

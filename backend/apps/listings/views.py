@@ -37,7 +37,7 @@ class ListingViewSet(viewsets.ModelViewSet):
         Listing.objects
         .filter(status=ListingStatus.ACTIVE)
         .prefetch_related('media')
-        .select_related('project', 'developer', 'seller')
+        .select_related('project', 'developer', 'seller', 'exit_profile')
         .order_by('-published_at', '-created_at')
     )
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
@@ -60,6 +60,7 @@ class ListingViewSet(viewsets.ModelViewSet):
 
         filters = {
             'type':           ('type',              None),
+            'property_type':  ('property_type__iexact', None),
             'project':        ('project_id',        None),
             'governorate':    ('governorate__iexact', None),
             'city':           ('city__iexact',       None),
@@ -77,6 +78,10 @@ class ListingViewSet(viewsets.ModelViewSet):
 
         if params.get('has_installments', '').lower() in ('true', '1'):
             qs = qs.filter(installment_plan__isnull=False)
+            
+        if params.get('is_verified_exit', '').lower() in ('true', '1'):
+            from apps.exit_deals.models import VerificationStatus
+            qs = qs.filter(exit_profile__verification_status=VerificationStatus.VERIFIED)
 
         return qs
 

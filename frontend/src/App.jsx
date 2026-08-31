@@ -14,6 +14,12 @@ import GovNews from './pages/GovNews';
 import SellYourUnit from './pages/SellYourUnit';
 import Account from './pages/Account';
 
+// Exit Deals Pages
+import ExitLanding from './pages/exit/ExitLanding';
+import ExitCalculator from './pages/exit/ExitCalculator';
+import ExitSellWizard from './pages/exit/ExitSellWizard';
+import ExitOpportunities from './pages/exit/ExitOpportunities';
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -35,6 +41,13 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/listings" element={<Listings />} />
                 <Route path="/listings/:id" element={<ListingDetail />} />
+                
+                {/* Exit Deals Routes */}
+                <Route path="/exit" element={<ExitLanding />} />
+                <Route path="/exit/calculator" element={<ExitCalculator />} />
+                <Route path="/exit/sell" element={<ExitSellWizard />} />
+                <Route path="/exit/opportunities" element={<ExitOpportunities />} />
+
                 <Route path="/projects" element={<Projects />} />
                 <Route path="/projects/:slug" element={<ProjectDetail />} />
                 <Route path="/gov-news" element={<GovNews />} />
