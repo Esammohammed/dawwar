@@ -30,6 +30,22 @@
   color: var(--text-muted);
 }
 
+.filterRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1.5rem;
+}
+
+.programSelect {
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-subtle);
+  color: var(--text-main);
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
 .list {
   display: flex;
   flex-direction: column;
@@ -54,9 +70,25 @@
   flex-wrap: wrap;
 }
 
+.badgeGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .sourceBadge {
   background: var(--secondary-light);
   color: var(--accent);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.programBadge {
+  background: var(--primary-light);
+  color: var(--primary);
   padding: 4px 12px;
   border-radius: 20px;
   font-size: 0.8rem;
@@ -101,6 +133,47 @@
   margin-bottom: 1.25rem;
 }
 
+.requirementsBox {
+  background: var(--secondary-light);
+  border: 1px solid var(--secondary-border);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.requirementsLabel {
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+.requirementsList {
+  margin: 0 0 0.75rem;
+  padding-inline-start: 1.25rem;
+  color: var(--text-main);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.requirementsNote {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.cardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 .sourceLink {
   display: inline-flex;
   align-items: center;
@@ -108,6 +181,19 @@
   color: var(--accent);
   font-weight: 700;
   font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.helpCtaBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #25D366;
+  color: #FFFFFF;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.85rem;
   text-decoration: none;
 }
 

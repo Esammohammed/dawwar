@@ -34,7 +34,6 @@ INSTALLED_APPS = [
     'apps.listings',
     'apps.applications',
     'apps.engagement',
-    'apps.exit_deals',
 ]
 
 MIDDLEWARE = [
@@ -146,6 +145,7 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_THROTTLE_RATES': {
         'login': '10/min',
+        'exit_lead': '20/hour',
     },
 }
 
@@ -191,10 +191,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.engagement.tasks.expire_unpaid_bookings_task',
         'schedule': 60.0,
     },
-    'run-govfeed-scraper': {
-        'task': 'apps.govfeed.tasks.scrape_govfeed_task',
-        'schedule': 3600.0,
-    },
+    # 'run-govfeed-scraper' removed — it only ever produced hardcoded mock
+    # announcements. Real government-housing scraping now runs in the
+    # standalone gov-scraper/ microservice (see gov-scraper/README.md),
+    # which posts into POST /api/announcements/scrape-import/.
 }
 
 # Email Configuration

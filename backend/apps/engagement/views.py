@@ -1,10 +1,11 @@
 from datetime import timedelta
 from django.db import transaction, IntegrityError
 from django.utils import timezone
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, mixins
 from rest_framework.response import Response
-from .models import Inquiry, Booking, BookingStatus
-from .serializers import InquirySerializer, BookingSerializer
+from rest_framework.throttling import ScopedRateThrottle
+from .models import Inquiry, Booking, BookingStatus, ExitLead
+from .serializers import InquirySerializer, BookingSerializer, ExitLeadSerializer
 from apps.listings.models import Listing, ListingStatus
 
 class InquiryViewSet(viewsets.ModelViewSet):
@@ -64,3 +65,12 @@ class BookingViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Listing not found'}, status=status.HTTP_404_NOT_FOUND)
         except IntegrityError:
             return Response({'error': 'This listing already has an active booking'}, status=status.HTTP_409_CONFLICT)
+
+class ExitLeadViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
+    """صفقة دوّار calculator lead capture — no login required (matches the
+    calculator itself, which shows results with no auth call)."""
+    queryset = ExitLead.objects.all()
+    serializer_class = ExitLeadSerializer
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'exit_lead'

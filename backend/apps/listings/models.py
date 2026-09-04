@@ -28,6 +28,17 @@ class MediaKind(models.TextChoices):
     PHOTO = 'photo', 'Photo'
     VIDEO = 'video', 'Video'
     FLOORPLAN = 'floorplan', 'Floorplan'
+    CONTRACT = 'contract', 'Contract'
+    PAYMENT_RECEIPT = 'payment_receipt', 'Payment Receipt'
+
+class ExitVerificationStatus(models.TextChoices):
+    PENDING = 'pending', 'Pending'
+    VERIFIED = 'verified', 'Verified'
+    REJECTED = 'rejected', 'Rejected'
+
+class ExitCommissionPayer(models.TextChoices):
+    BUYER = 'buyer', 'Buyer'
+    SELLER = 'seller', 'Seller'
 
 class Listing(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -63,6 +74,24 @@ class Listing(models.Model):
     transfer_fee = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
     installment_plan = models.JSONField(null=True, blank=True)
 
+    # "صفقة دوّار" — Verified Contract-Exit Fields
+    # Only meaningful when is_exit_listing=True (see chk_exit_listing_type below);
+    # a plain resale listing leaves these at their defaults/null, the same way
+    # original_price/amount_paid already sit NULL for developer_unit/scraped listings.
+    is_exit_listing = models.BooleanField(default=False)
+    developer_current_price = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    owner_confirmed_no_markup = models.BooleanField(default=False)
+    exit_verification_status = models.CharField(
+        max_length=10, choices=ExitVerificationStatus.choices,
+        default=ExitVerificationStatus.PENDING, null=True, blank=True,
+    )
+    exit_verification_notes = models.TextField(blank=True, null=True)
+    exit_commission_payer = models.CharField(
+        max_length=10, choices=ExitCommissionPayer.choices,
+        default=ExitCommissionPayer.BUYER, null=True, blank=True,
+    )
+    exit_commission_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+
     # Scraped Source Fields
     source_site = models.CharField(max_length=50, null=True, blank=True, choices=[('propertyfinder', 'Property Finder'), ('dubizzle', 'Dubizzle')])
     source_url = models.URLField(max_length=500, null=True, blank=True, unique=True)
@@ -92,7 +121,11 @@ class Listing(models.Model):
                     (Q(type='scraped') & Q(seller__isnull=False))
                 ),
                 name='chk_listing_owner'
-            )
+            ),
+            models.CheckConstraint(
+                check=Q(is_exit_listing=False) | Q(type='resale'),
+                name='chk_exit_listing_type'
+            ),
         ]
 
     def __str__(self):
@@ -101,11 +134,13 @@ class Listing(models.Model):
 class Media(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='media')
-    # ImageField stores files on disk (MEDIA_ROOT/listings/YYYY/MM/).
-    # To swap to S3 in production, simply set DEFAULT_FILE_STORAGE in settings —
-    # no model or service code needs to change.
-    file = models.ImageField(upload_to='listings/%Y/%m/')
-    kind = models.CharField(max_length=10, choices=MediaKind.choices, default=MediaKind.PHOTO)
+    # FileField (not ImageField) since kind=contract/payment_receipt are
+    # frequently PDF scans, not images — MIME validation happens in
+    # MediaUploadService, not at the model/DB layer. Stores files on disk
+    # (MEDIA_ROOT/listings/YYYY/MM/); to swap to S3 in production, simply set
+    # DEFAULT_FILE_STORAGE in settings — no model or service code changes.
+    file = models.FileField(upload_to='listings/%Y/%m/')
+    kind = models.CharField(max_length=20, choices=MediaKind.choices, default=MediaKind.PHOTO)
     sort_order = models.PositiveSmallIntegerField(default=0)
     is_primary = models.BooleanField(default=False, db_index=True)
 

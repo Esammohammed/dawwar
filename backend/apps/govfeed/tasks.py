@@ -1,44 +1,19 @@
-import hashlib
+import logging
 from celery import shared_task
-from django.utils import timezone
-from .models import ScrapeSource, Announcement, AnnouncementStatus
+
+logger = logging.getLogger(__name__)
+
 
 @shared_task
 def scrape_govfeed_task():
+    """Deprecated — superseded by the gov-scraper microservice.
+
+    This used to generate hardcoded mock Arabic announcements (no real HTTP
+    fetch, no real AI summary) once an hour. Real scraping now happens in
+    the standalone `gov-scraper/` service, which posts genuine announcements
+    to POST /api/announcements/scrape-import/. Left as a harmless no-op
+    (rather than deleted outright) in case anything still references this
+    task name; it is no longer on CELERY_BEAT_SCHEDULE (see config/settings.py).
     """
-    Celery task that fetches active scraping sources, checks for new announcements,
-    generates SHA256 source_url_hash for deduplication, and generates Claude AI summary in Arabic.
-    """
-    sources = ScrapeSource.objects.filter(active=True)
-    scraped_count = 0
-
-    for source in sources:
-        # Update last run timestamp
-        source.last_run_at = timezone.now()
-        source.save()
-
-        # Simulated scraping items for demonstration
-        mock_items = [
-            {
-                'title': f'طرح وحدات سكنية جديدة في {source.name}',
-                'body': 'تعلن وزارة الإسكان والمرافق والمجتمعات العمرانية عن فتح باب الحجز لوحدات سكنية بمساحات مختلفة تبدأ من 90 متر مربع حتى 150 متر مربع بشروط ميسرة ونظام أقساط على 7 سنوات.',
-                'url': f'{source.url}/news/{int(timezone.now().timestamp())}'
-            }
-        ]
-
-        for item in mock_items:
-            url_hash = hashlib.sha256(item['url'].encode('utf-8')).hexdigest()
-            if not Announcement.objects.filter(source_url_hash=url_hash).exists():
-                ai_summary = f"ملخص الذكاء الاصطناعي: {item['title']} - حجز وحدات سكنية جديدة بمساحات متنوعة وأسعار تنافسية."
-                Announcement.objects.create(
-                    source=source,
-                    title=item['title'],
-                    body=item['body'],
-                    ai_summary=ai_summary,
-                    source_url=item['url'],
-                    source_url_hash=url_hash,
-                    status=AnnouncementStatus.PENDING_REVIEW
-                )
-                scraped_count += 1
-
-    return f"Scraped {scraped_count} new announcements."
+    logger.info("scrape_govfeed_task is deprecated and no longer generates content — see gov-scraper/.")
+    return "no-op: superseded by gov-scraper microservice"

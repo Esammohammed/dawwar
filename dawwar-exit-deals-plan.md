@@ -1,4 +1,4 @@
-# Verified Contract-Exit Marketplace ("Safe Exit") — Feature Plan
+# "صفقة دوّار" — Verified Contract-Exit Listings — Feature Plan
 
 ## Context
 
@@ -16,10 +16,12 @@ magnet.
 
 The user wants Dawwar to offer this same "sell your unit if you can't keep up
 with payments" product, and asked me to (a) extract AqarExit's actual feature
-set by visiting the site, and (b) decide whether it should be a new
-microservice or folded into the existing app, before any implementation.
+set by visiting the site, and (b) decide how it should fit into the codebase,
+before any implementation.
 
-This document is that plan.
+**This plan has been revised once already** (see §2) after building a first
+version and finding the initial data-model split created real duplication —
+that revision is captured below so the reasoning isn't lost.
 
 ---
 
@@ -70,260 +72,271 @@ This document is that plan.
   contract + payment receipts → team verifies and publishes a verified
   opportunity → platform matches a qualified buyer → supported transfer until
   payment lands.
-- **Steps 2–6 of the wizard were not extractable** (site didn't render further
-  without progressing through the form). Steps 2-6 in this plan are an
-  inferred design based on Dawwar's existing data model and the 5-stage
-  process description — flagged explicitly as design, not scraped fact.
+- **Steps 2–6 of the wizard were not extractable.** Steps 2-6 in this plan
+  (§5) are an inferred design based on Dawwar's existing data model and the
+  5-stage process description — flagged explicitly as design, not scraped
+  fact.
 
 ---
 
-## 2. Architecture decision: extend the monolith, do not split into a microservice
+## 2. Architecture decision (revised): extend `apps.listings` directly — no separate app, no separate listing model
 
-**Decision: integrate as a new Django app (`apps.exit_deals`) inside the
-existing backend, not a separate service.**
+**Original decision** was a new `apps.exit_deals` Django app with its own
+`ExitListing` (OneToOne → `Listing`) and `ExitDocument` models, reasoning that
+exit-specific fields shouldn't pollute the shared `Listing`/`Media` models and
+that this mirrored the `Booking`/`Application` pattern of separate models
+referencing a core entity.
 
-Why, concretely, based on what's actually in the codebase today
-(`backend/apps/listings/models.py`):
+**That was implemented, then reconsidered** once the next real requirement
+came up — exit listings need file uploads too (contract + payment receipts),
+and building that turned out to just be reinventing `apps.listings.Media`
+(FK to owner + `FileField` + a `kind` choice + `uploaded_at`) a second time
+under a different name (`ExitDocument`). That duplication was the concrete
+sign the split was wrong, and revisiting it further weakened the rest of the
+original reasoning:
 
-- `Listing` already has `original_price`, `amount_paid`, `transfer_fee`,
-  `installment_plan`, `negotiable`, `seller` — this feature reuses ~90% of an
-  existing, working data model. A microservice would force either duplicating
-  that model in a second database or making synchronous cross-service calls
-  for every listing render — pure overhead for zero benefit today.
-- Two existing patterns are direct templates for the two hardest parts of
-  this feature:
-  - `apps.engagement.Booking` — row-lock (`select_for_update`) + status flip +
-    `expires_at` + a DB-level "only one active X per listing" constraint —
-    exactly the shape needed if we ever add a matched-buyer lock step.
-  - `apps.applications.Application` — a status-workflow model
-    (`collecting_docs → ready → submitted → accepted/rejected`) with a
-    `documents` field and staff review via Django admin, no dedicated
-    moderation API — exactly the shape needed for exit-listing verification.
-- The codebase is already a modular monolith (`apps/accounts`, `apps/listings`,
-  `apps/developers`, `apps/projects`, `apps/applications`, `apps/engagement`,
-  `apps/govfeed`) — one Postgres DB, one deploy, apps split by bounded
-  context rather than by service. A new app is the idiomatic way to add a
-  bounded feature here; a microservice would break the FK chain
-  (`Listing.seller → User`, `Booking.listing → Listing`) that every other
-  feature relies on, for a feature with no independent scaling, no separate
-  team, and no polyglot requirement — none of the reasons that justify a
-  service split are present.
-- Splitting later is always possible once (if) this product needs independent
-  scaling; doing it now is pure premature cost.
+- `Listing` **already** carries nullable, type-specific columns —
+  `original_price`, `amount_paid`, `transfer_fee`, `installment_plan` only
+  mean something for resale listings and sit `NULL` for developer_unit/scraped
+  ones. Adding a handful more nullable, exit-specific columns is the same
+  pattern already in use on this exact model, not new pollution.
+- The `Booking`/`Application` comparison was weaker than first presented:
+  those are independent transactional entities with their own lifecycle (a
+  booking can expire or be cancelled independent of the listing). Exit fields
+  are just more facts about the *same* listing, not a separate process with
+  its own lifecycle — closer to `original_price`/`amount_paid` than to
+  `Booking`.
+- A `Listing` row *is* the exit listing (same title, price, location, media,
+  seller) — a `OneToOneField` split just adds a join and a second admin
+  screen for data that's conceptually one record, which is exactly the
+  fragmented admin UX that prompted this reconsideration in the first place.
 
-**What this means concretely:** one new Django app, one new set of frontend
-routes/components, zero new docker-compose services, zero new infra.
+**Revised decision:**
+- Add exit-specific fields directly to `Listing`
+  ([backend/apps/listings/models.py](backend/apps/listings/models.py)).
+- Extend `Media`'s existing `MediaKind` choices to cover contract/receipt
+  documents instead of a separate `ExitDocument` model — one upload pipeline
+  for both property photos and legal documents, differentiated only by kind.
+- Drop the `ExitListing` and `ExitDocument` models and the `apps.exit_deals`
+  app entirely.
+- The one thing that stays genuinely separate: **`ExitLead`** (calculator
+  submissions) — these are captured *before* any listing exists and often
+  never turn into one, so there's no `Listing` row to attach them to. This
+  moves into `apps.engagement`, next to `Inquiry`/`Booking`, since that app is
+  already the home for user-intent/lead-capture models.
+- Net effect: **no new Django app at all.** This feature is now a handful of
+  new fields + widened choices on two existing models, plus new frontend
+  routes. Smaller footprint than either prior plan.
 
-**Decisions locked in with the user:**
-- Feature name — two-tier, matching how AqarExit itself names its own
-  marketplace ("AqarExit" the brand vs. "الفرص المتاحة" the page):
-  - **"صفقة دوّار"** (Safqet Dawwar) is the **section brand** — used in the
-    nav link, the `/exit` page title/hero, and anywhere the feature is
-    referred to as a whole. Deliberately echoes the familiar Egyptian idiom
-    "صفقة العمر" (deal of a lifetime), and leads with opportunity/upside
-    rather than distress — the same framing AqarExit uses for its own
-    "opportunities" page.
-  - **"تنازل بدون عمولة"** (Transfer, No Commission) stays as the precise
-    **descriptive label** used on individual listing badges, the filter
-    checkbox, and form copy — where a reader needs to know exactly what
-    they're getting, not just the section's name.
+**Decisions locked in with the user (still standing):**
+- Feature name — two-tier: **"صفقة دوّار"** (Safqet Dawwar) is the section
+  brand (nav link, `/exit` page title/hero) — echoes the familiar idiom
+  "صفقة العمر" (deal of a lifetime), leading with opportunity rather than
+  distress, same framing AqarExit itself uses ("الفرص المتاحة" /
+  opportunities). **"تنازل بدون عمولة"** (Transfer, No Commission) stays as
+  the precise descriptive label on individual listing badges, the filter
+  checkbox, and form copy.
 - The seller flow is a **brand-new wizard** at `/exit/sell` — the existing
-  `SellYourUnit.jsx` / `/sell` form is left completely untouched.
+  `SellYourUnit.jsx` / `/sell` form is left untouched.
 - Verified exit listings get **both** a dedicated `/exit/opportunities` page
-  **and** a badge/callout inside the main `/listings` marketplace — so
-  `ListingCard.jsx` gets a small additive change (see §5).
+  **and** a badge/callout inside the main `/listings` marketplace.
 
 ---
 
-## 3. Data model — `backend/apps/exit_deals` (new app)
+## 3. Data model — additions to `apps.listings` (+ one addition to `apps.engagement`)
 
-Reuses the existing `Listing` model as-is (no changes to its fields) and adds
-a thin extension, following the same "separate model referencing the core
-entity" shape already used by `Booking`/`Inquiry`/`Application` rather than
-bloating `Listing` with fields that only apply to this one sub-product.
-
-**`ExitListing`** — `OneToOneField(Listing, related_name='exit_profile', on_delete=CASCADE)`
-- `developer_current_price` — decimal, nullable. The one genuinely new number
-  (AqarExit's "سعر نفس الوحدة من المطور النهارده"). Everything else AqarExit
-  shows per-card is derivable from fields `Listing` already has:
-  - **cash required now** = `listing.amount_paid + listing.transfer_fee`
-  - **remaining to developer** = `listing.original_price - listing.amount_paid`
+**`Listing`** — new fields, all nullable/defaulted so every existing row and
+every non-exit listing is unaffected:
+- `is_exit_listing` — bool, default `False`. Gates all the fields below the
+  same way `type` already gates `original_price`/`amount_paid`/etc. A new
+  `CheckConstraint` mirrors the existing `chk_listing_owner` pattern:
+  `is_exit_listing=True` requires `type=resale`.
+- `developer_current_price` — decimal, nullable. The one genuinely new
+  number (AqarExit's "سعر نفس الوحدة من المطور النهارده"). Everything else
+  AqarExit shows per-card is derivable from fields `Listing` already has:
+  - **cash required now** = `amount_paid + transfer_fee`
+  - **remaining to developer** = `original_price - amount_paid`
   - **buyer's gain vs. market** = `developer_current_price - cash_required_now`,
-    net of `commission_rate`
-- `owner_confirmed_no_markup` — bool, the wizard's acknowledgement checkbox.
-- `verification_status` — choices `pending / verified / rejected`, default
-  `pending`. Mirrors `ApplicationStatus`'s pattern. A listing must be
-  `Listing.status == active` **and** `ExitListing.verification_status ==
-  verified` to appear anywhere as a verified exit opportunity — this keeps
-  the existing marketplace-visibility rule (`Listing.status`) orthogonal to
-  the exit-specific trust badge.
-- `verification_notes` — text, staff-only notes (rejection reason, broker
-  suspicion, etc.), same role as `Application.notes`.
-- `commission_payer` — choices `buyer / seller`, default `buyer`.
-- `commission_rate` — decimal, defaulted from a new
+    net of `exit_commission_rate`
+- `owner_confirmed_no_markup` — bool, default `False`. The wizard's
+  acknowledgement checkbox.
+- `exit_verification_status` — choices `pending / verified / rejected`,
+  default `pending`, nullable when `is_exit_listing=False`. A listing must be
+  `status=active` **and** `exit_verification_status=verified` to appear
+  anywhere as a verified exit opportunity — keeps the existing
+  marketplace-visibility rule (`status`) orthogonal to the exit-specific
+  trust badge.
+- `exit_verification_notes` — text, staff-only (rejection reason, broker
+  suspicion, etc.).
+- `exit_commission_payer` — choices `buyer / seller`, default `buyer`.
+- `exit_commission_rate` — decimal, defaulted from a new
   `settings.EXIT_DEFAULT_COMMISSION_RATE` (e.g. `1.25`) at creation time, so a
   later rate change doesn't retroactively alter already-published listings.
-- `created_at`, `updated_at`.
 
-> **Scope boundary:** `commission_payer`/`commission_rate` are informational
-> display fields only. Nothing in this codebase collects payments today (even
-> `Booking.deposit_amount` is just a DB figure, not a real charge) — actually
-> billing the buyer's commission is out of scope for this plan.
+> **Scope boundary (unchanged):** `exit_commission_payer`/`exit_commission_rate`
+> are informational display fields only. Nothing in this codebase collects
+> payments today — actually billing the buyer's commission is out of scope.
 
-**`ExitDocument`** — `FK(ExitListing, related_name='documents', on_delete=CASCADE)`
-- `doc_type` — choices `contract / payment_receipt / other`.
-- `file` — `FileField` (not `ImageField`, since contracts are frequently PDF
-  scans), same disk-storage convention as `apps.listings.Media`.
-- `uploaded_at`.
-- Reuses/extends the existing `MediaUploadService` validation pattern
-  (`backend/apps/listings/services.py`) as `ExitDocumentUploadService`,
-  widening allowed MIME types to include `application/pdf`.
+**`Media`** — extend `MediaKind` choices:
+- Add `contract`, `payment_receipt` alongside the existing `photo`, `video`,
+  `floorplan`.
+- `MediaUploadService`
+  ([backend/apps/listings/services.py](backend/apps/listings/services.py))
+  widens its MIME allowlist to accept `application/pdf` when `kind` is one of
+  the two new document kinds (still images-only for `photo`/`floorplan`).
+  Same model, same endpoint, same admin inline — no new upload pipeline.
 
-**`ExitLead`** — standalone, not linked to a `Listing` (captured *before* any
-listing exists, from the calculator).
-- `phone` (nullable — calculator results show without it; phone is only
-  collected if the user opts into the follow-up CTA), `contract_price`,
-  `amount_paid`, `years_paid`, `computed_result` (JSON snapshot of what was
-  shown to them), `created_at`.
-- Feeds staff follow-up via Django admin — this is the tool's actual
+**`ExitLead`** (moves into `apps.engagement`, alongside `Inquiry`/`Booking`) —
+standalone, no `Listing` FK (captured before any listing exists):
+- `phone` (nullable — calculator results show without it; only collected if
+  the user opts into the follow-up CTA), `contract_price`, `amount_paid`,
+  `years_paid`, `computed_result` (JSON snapshot of what was shown to them),
+  `created_at`.
+- Feeds staff follow-up via Django admin — this is the calculator's actual
   lead-generation value, same as it clearly is on AqarExit.
 
 No changes needed to `apps.accounts` — "owners only" is enforced the same way
 AqarExit does it: staff reviewing the uploaded contract + payment receipts
-against the listing's `seller`, via Django admin (see §4). No new KYC/ID-upload
+against the listing's `seller`, via Django admin. No new KYC/ID-upload
 infrastructure.
+
+**Migration note:** since `ExitListing`/`ExitDocument` already exist in the DB
+from the first pass, the migration for this revision needs to (1) add the new
+`exit_*` columns to `listings`, (2) backfill them from any existing
+`ExitListing` rows, (3) migrate existing `ExitDocument` rows into `Media`
+with the new kinds, (4) drop the `ExitListing`/`ExitDocument` tables and the
+`apps.exit_deals` app once data is confirmed migrated.
 
 ---
 
 ## 4. Backend — endpoints & admin
 
-New app wiring: `apps.exit_deals` added to `INSTALLED_APPS`
-(`backend/config/settings.py`), new `EXIT_DEFAULT_COMMISSION_RATE` setting,
-`include()`'d in `backend/config/urls.py`.
+No new app, no new `INSTALLED_APPS` entry, no new URL include beyond what
+`apps.listings` and `apps.engagement` already have.
 
-**Reused unchanged:** `POST /api/listings/` (base listing creation) and
-`POST /api/listings/{id}/upload-media/` (property photos) — the exit wizard
-calls these exact existing endpoints for steps 1 and 5 of its submission, no
-duplication of listing-creation logic.
+- `POST /api/listings/` — unchanged endpoint, now also accepts the new
+  `is_exit_listing`, `developer_current_price`, `owner_confirmed_no_markup`
+  fields in `ListingCreateSerializer`. Creating with `is_exit_listing=True`
+  sets `exit_verification_status=pending` and stamps
+  `exit_commission_rate` from settings.
+- `POST /api/listings/{id}/upload-media/` — unchanged endpoint, now used for
+  **both** property photos and exit documents; the existing `kind` param
+  (already accepted per-file) just gains two more valid values.
+- `GET /api/listings/exit-opportunities/` — new `@action` on the existing
+  `ListingViewSet`, filtering `is_exit_listing=True,
+  exit_verification_status=verified, status=active`, with AqarExit-parity
+  sort params (newest / lowest cash required / biggest gain / negotiable).
+  This is the endpoint backing `/exit/opportunities` on the frontend.
+- `POST /api/engagement/exit-leads/` — new, lives with `Inquiry`/`Booking` in
+  `apps.engagement`, `AllowAny`, throttled, creates an `ExitLead`.
+- `ListingAdmin` ([backend/apps/listings/admin.py](backend/apps/listings/admin.py)):
+  the new `exit_*` fields just appear on the same listing edit page (grouped
+  in a fieldset), with a `list_filter` entry for `exit_verification_status`
+  and bulk "mark exit-verified / mark exit-rejected" actions — no second
+  admin section, no inline needed, since it's now all one model. This
+  directly resolves the fragmented-admin complaint from earlier: one listing,
+  one edit page, including its documents (via the existing `MediaInline`).
+- `ExitLeadAdmin` registered in `apps.engagement`, next to `InquiryAdmin`.
 
-**New in `apps.exit_deals`:**
-- `POST /api/exit-deals/listings/{listing_id}/profile/` — attaches
-  `ExitListing` metadata to an already-created listing (must be owned by
-  `request.user`), sets `verification_status=pending`.
-- `POST /api/exit-deals/listings/{listing_id}/documents/` — multipart,
-  repeatable, owner-only, via `ExitDocumentUploadService`.
-- `GET /api/exit-deals/opportunities/` — read-only list/retrieve of verified
-  exit listings (`ExitListing.verification_status=verified`,
-  `listing__status=active`), supporting AqarExit-parity sort params: newest,
-  lowest cash required, biggest gain, negotiable-only.
-- `POST /api/exit-deals/calculator-leads/` — `AllowAny`, throttled, creates an
-  `ExitLead`.
-- `admin.py` — `ExitListingAdmin` (inline `ExitDocumentAdmin`, list filter on
-  `verification_status`, bulk "mark verified / mark rejected" actions) and
-  `ExitLeadAdmin`. This matches the existing codebase convention: regular
-  `Listing.status` review already happens purely through Django admin with no
-  dedicated moderation API — same here, no new surface area.
-
-**Small, additive touch to `apps.listings`** (needed for the marketplace-badge
-decision in §2): `ListingSerializer` (`backend/apps/listings/serializers.py`)
-gets one new nullable `SerializerMethodField`, `exit_profile`, that returns
-`None` for every ordinary listing and a small badge payload
-(`cash_required_now`, `market_gain`, `remaining_to_developer`) only when a
-verified `ExitListing` exists — lazily imported inside the method to avoid a
-circular import with the new app. `ListingViewSet.get_queryset` gets
-`.select_related('exit_profile')` added to avoid N+1 queries. Nothing else in
-`apps.listings` changes.
+**`ListingSerializer`** gets the new fields added directly (no lazy import,
+no cross-app serializer composition needed anymore, since everything lives in
+one model) — `is_exit_listing`, and (only when true) `cash_required_now`,
+`market_gain`, `remaining_to_developer` as computed `SerializerMethodField`s
+for the marketplace badge.
 
 ---
 
 ## 5. Frontend
 
-**New routes** (added to `frontend/src/App.jsx`):
-- `/exit` — `pages/exit/ExitLanding.jsx`: the trust/value-prop page (mirrors
-  AqarExit's `/sellers` intro), titled "صفقة دوّار": headline, the 4-point checklist extracted in
-  §1 ("real contract review, not an estimate" / "documented cancel-vs-transfer
-  comparison" / "honest recommendation, even if it's 'stay put'" / "free for
-  sellers, buyer pays the 1.25%"), the "owners only, no brokers" callout, and
-  two CTAs → Calculator and → Start Wizard.
+**New routes** (added to [frontend/src/App.jsx](frontend/src/App.jsx)):
+- `/exit` — `pages/exit/ExitLanding.jsx`, titled "صفقة دوّار": the
+  trust/value-prop page (mirrors AqarExit's `/sellers` intro): headline, the
+  4-point checklist from §1 ("real contract review, not an estimate" /
+  "documented cancel-vs-transfer comparison" / "honest recommendation, even
+  if it's 'stay put'" / "free for sellers, buyer pays the 1.25%"), the
+  "owners only, no brokers" callout, two CTAs → Calculator and → Start
+  Wizard.
 - `/exit/calculator` — `pages/exit/ExitCalculator.jsx`: buyer/owner toggle, 3
   inputs (contract price, paid to date, years paid), instant client-side
-  result via a new pure helper `frontend/src/utils/exitCalculator.js`.
-  Results render **without requiring login or phone** (matches the extracted
-  UX); a soft-CTA below the result ("عايز نساعدك تخرج؟") optionally posts to
-  `/api/exit-deals/calculator-leads/` only if the user opts in.
-  The calculator's cancellation-vs-transfer math is clearly labeled
-  "استرشادية" (indicative) with a configurable default penalty assumption —
-  AqarExit's exact formula is proprietary/developer-specific and wasn't
-  published, so this isn't presented as precise.
+  result via a new pure helper
+  [frontend/src/utils/exitCalculator.js](frontend/src/utils/exitCalculator.js).
+  Results render **without requiring login or phone**; a soft-CTA below the
+  result ("عايز نساعدك تخرج؟") optionally posts to
+  `/api/engagement/exit-leads/` only if the user opts in. Math is clearly
+  labeled "استرشادية" (indicative) — AqarExit's exact formula is proprietary
+  and wasn't published, so this isn't presented as precise.
 - `/exit/opportunities` — `pages/exit/ExitOpportunities.jsx`: same
-  grid/filter shell as the existing `Listings.jsx`, pre-filtered to
-  `is_verified_exit=true` against the new `/api/exit-deals/opportunities/`
-  endpoint, with AqarExit-parity sort options (newest / lowest cash required /
-  biggest gain / negotiable). **Reuses `ListingCard.jsx` directly** rather
-  than forking a new card component, since that component already renders
-  the exit badge/figures once `listing.exit_profile` is present (see below) —
-  a direct payoff of choosing "badge in main marketplace" in §2.
-- `/exit/sell` — `pages/exit/ExitSellWizard.jsx`, a new 6-step wizard,
-  independent of `SellYourUnit.jsx`. Confirmed step 1 content from the live
-  site; steps 2–6 are an inferred design (flagged, not scraped):
+  grid/filter shell as `Listings.jsx`, hitting the new
+  `GET /api/listings/exit-opportunities/` action, with AqarExit-parity sort
+  options. **Reuses `ListingCard.jsx` directly** — it already renders the
+  exit badge/figures once `listing.is_exit_listing` is present (below).
+- `/exit/sell` — `pages/exit/ExitSellWizard.jsx`, new 6-step wizard,
+  independent of `SellYourUnit.jsx`. Confirmed step 1 from the live site;
+  steps 2–6 are inferred design:
   1. Contract & unit financials — developer name, project/compound name,
      contract price, amount paid to date, developer's current price today
-     (optional), + the no-markup acknowledgement checkbox. (Matches AqarExit's
-     confirmed step 1 almost field-for-field.)
-  2. Property specs & location — reuses the existing `GovernorateSelect`/
-     `CitySelect` components already built for `SellYourUnit.jsx`.
-  3. Owner confirmation — requires being logged in (existing phone-OTP auth);
-     an explicit "أنا مالك الوحدة، مش وسيط أو سمسار" attestation checkbox.
+     (optional), + the no-markup acknowledgement checkbox.
+  2. Property specs & location — reuses existing `GovernorateSelect`/
+     `CitySelect` components.
+  3. Owner confirmation — requires login (existing phone-OTP auth); explicit
+     "أنا مالك الوحدة، مش وسيط أو سمسار" attestation checkbox.
   4. Documents — contract + payment-receipt upload, extending the existing
-     `ImageUploadZone` pattern to also accept PDF.
-  5. Property photos — reuses the existing `ImageUploadZone` and the
-     unchanged `upload-media` endpoint.
+     `ImageUploadZone` pattern to also accept PDF, tagged with the new
+     `contract`/`payment_receipt` kinds.
+  5. Property photos — reuses `ImageUploadZone` as-is.
   6. Review & submit.
-  Submission chain mirrors `SellYourUnit.jsx`'s existing multi-request
-  pattern: `POST /listings/` → `POST /exit-deals/listings/{id}/profile/` →
-  `POST /exit-deals/listings/{id}/documents/` → `POST
-  /listings/{id}/upload-media/`.
+  **Submission chain is now simpler than the first version:** `POST
+  /listings/` (with `is_exit_listing=true` + financial fields in the same
+  payload) → `POST /listings/{id}/upload-media/` (called twice: once for
+  documents with `kind=contract`/`payment_receipt`, once for photos with
+  `kind=photo`) — two endpoint calls instead of four, no new endpoints to
+  build at all.
 
 **Touched (additively) — the marketplace badge:**
-- `frontend/src/components/ListingCard.jsx`: when `listing.exit_profile` is
-  present, render a "تنازل بدون عمولة" ribbon plus the cash-required-now
-  figure and a green gain box — conditional addition, no change to existing
-  rendering when it's absent (i.e. every current listing).
-- `frontend/src/components/FilterBar.jsx`: one new checkbox, "تنازل بدون
-  عمولة فقط", following the exact pattern of the existing "Installments
-  Only" checkbox, wired through `frontend/src/stores/filterStore.js` and
-  passed as `is_verified_exit=true`.
-- `frontend/src/components/Navbar.jsx`: one new nav link, "صفقة دوّار"
-  → `/exit`.
-- `frontend/src/pages/SellYourUnit.jsx`: a small banner/link ("مش قادر تكمل
-  أقساطك؟ اعرف صفقة دوّار — تنازل بدون عمولة →") pointing to `/exit`, for
-  discoverability from the existing sell flow. No logic changes to this file.
-- `ar.js` / `en.js`: new `exitDeals` i18n namespace covering every string
-  above.
+- [frontend/src/components/ListingCard.jsx](frontend/src/components/ListingCard.jsx):
+  when `listing.is_exit_listing` is true, render a "تنازل بدون عمولة" ribbon
+  plus cash-required-now and a green gain box — conditional addition, no
+  change when absent.
+- [frontend/src/components/FilterBar.jsx](frontend/src/components/FilterBar.jsx):
+  one new checkbox, "تنازل بدون عمولة فقط", same pattern as the existing
+  "Installments Only" checkbox, wired through
+  [frontend/src/stores/filterStore.js](frontend/src/stores/filterStore.js).
+- [frontend/src/components/Navbar.jsx](frontend/src/components/Navbar.jsx):
+  one new nav link, "صفقة دوّار" → `/exit`.
+- [frontend/src/pages/SellYourUnit.jsx](frontend/src/pages/SellYourUnit.jsx):
+  small banner/link ("مش قادر تكمل أقساطك؟ اعرف صفقة دوّار — تنازل بدون
+  عمولة →") pointing to `/exit`. No logic changes to this file.
+- `ar.js` / `en.js`: new `exitDeals` i18n namespace.
 
 ---
 
 ## 6. Verification
 
-1. `python manage.py makemigrations exit_deals && migrate` — confirm the
-   `ExitListing` OneToOne, `ExitDocument`, `ExitLead` tables are created
-   cleanly against the existing `listings` table with no FK issues.
-2. Run backend + frontend dev servers (existing `docker-compose.yml` targets,
-   unchanged).
+1. `python manage.py makemigrations listings engagement && migrate` — confirm
+   the new `Listing`/`Media` columns/choices apply cleanly, and (per the
+   migration note in §3) that existing `ExitListing`/`ExitDocument` data is
+   backfilled before those tables are dropped.
+2. Run backend + frontend dev servers (existing `docker-compose.yml`
+   targets, unchanged).
 3. Walk `/exit/sell` end-to-end as a logged-in test user: submit steps 1–6,
-   confirm all four chained requests succeed and a `Listing` +
-   `ExitListing(verification_status=pending)` + uploaded `ExitDocument`s +
-   `Media` exist in the DB.
-4. In Django admin, mark that `ExitListing` `verified` — confirm it now
-   appears on `/exit/opportunities` and shows the badge/gain box on the card
-   in the main `/listings` page, with `pending`/`rejected` ones confirmed
-   absent from both.
+   confirm the two chained requests succeed and the `Listing` row has
+   `is_exit_listing=True`, `exit_verification_status=pending`, and both
+   document and photo `Media` rows attached.
+4. In Django admin, mark that listing's `exit_verification_status=verified`
+   on its single edit page — confirm it now appears on `/exit/opportunities`
+   and shows the badge/gain box on the card in the main `/listings` page,
+   with `pending`/`rejected` ones confirmed absent from both.
 5. Load `/exit/calculator` logged out, submit numbers, confirm a result
-   renders with no auth call, and that the optional lead-capture CTA reaches
-   `/api/exit-deals/calculator-leads/` only when explicitly submitted.
+   renders with no auth call, and the optional lead-capture CTA reaches
+   `/api/engagement/exit-leads/` only when explicitly submitted.
 6. Confirm `SellYourUnit.jsx` and `Listings.jsx` behave exactly as before for
    ordinary (non-exit) listings — no regressions in the untouched paths.
+7. Confirm `apps.exit_deals` is fully removed (no leftover imports,
+   `INSTALLED_APPS` entry, or URL includes) once the migration in step 1 is
+   verified complete.
 
-<!-- CHECKPOINT id="ckpt_mthowcw4_wmi436" time="2026-08-31T20:27:23.332Z" note="auto" fixes=0 questions=0 highlights=0 sections="3. Data model — `backend/apps/exit_deals` (new app)" -->
+<!-- CHECKPOINT id="ckpt_mthqonqh_ik77ay" time="2026-08-31T21:17:23.369Z" note="auto" fixes=0 questions=0 highlights=0 sections="" -->
 
-<!-- CHECKPOINT id="ckpt_mthpyxsk_utuf6q" time="2026-08-31T20:57:23.348Z" note="auto" fixes=0 questions=0 highlights=0 sections="3. Data model — `backend/apps/exit_deals` (new app)" -->
+<!-- CHECKPOINT id="ckpt_mthrr8m2_u4s3ob" time="2026-08-31T21:47:23.354Z" note="auto" fixes=0 questions=0 highlights=0 sections="" -->
+
+<!-- CHECKPOINT id="ckpt_mtkbbe18_z7uyvk" time="2026-09-02T16:30:28.556Z" note="auto" fixes=0 questions=0 highlights=0 sections="" -->

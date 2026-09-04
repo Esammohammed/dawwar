@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 
-from .models import Listing, ListingStatus
+from .models import Listing, ListingStatus, ExitVerificationStatus, MediaKind
 from .serializers import (
     ListingSerializer,
     ListingCreateSerializer,
@@ -37,7 +37,7 @@ class ListingViewSet(viewsets.ModelViewSet):
         Listing.objects
         .filter(status=ListingStatus.ACTIVE)
         .prefetch_related('media')
-        .select_related('project', 'developer', 'seller', 'exit_profile')
+        .select_related('project', 'developer', 'seller')
         .order_by('-published_at', '-created_at')
     )
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
@@ -78,10 +78,9 @@ class ListingViewSet(viewsets.ModelViewSet):
 
         if params.get('has_installments', '').lower() in ('true', '1'):
             qs = qs.filter(installment_plan__isnull=False)
-            
+
         if params.get('is_verified_exit', '').lower() in ('true', '1'):
-            from apps.exit_deals.models import VerificationStatus
-            qs = qs.filter(exit_profile__verification_status=VerificationStatus.VERIFIED)
+            qs = qs.filter(is_exit_listing=True, exit_verification_status=ExitVerificationStatus.VERIFIED)
 
         return qs
 
@@ -104,10 +103,13 @@ class ListingViewSet(viewsets.ModelViewSet):
         url_path='upload-media',
     )
     def upload_media(self, request, pk=None):
-        """Upload one or more image files for an existing listing.
+        """Upload one or more files for an existing listing.
 
-        Accepts ``multipart/form-data`` with field name ``images`` (repeatable).
-        Only the listing's owner may upload media.
+        Accepts ``multipart/form-data`` with field name ``images`` (repeatable)
+        and an optional ``kind`` field (``photo`` default; also accepts
+        ``video``, ``floorplan``, or — for صفقة دوّار listings — ``contract``/
+        ``payment_receipt``, which additionally allow PDF). Only the
+        listing's owner may upload media.
         """
         # Fetch directly — the base queryset is ACTIVE-only, but the seller
         # needs to upload media while the listing is still UNDER_REVIEW.
@@ -130,9 +132,13 @@ class ListingViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        kind = request.data.get('kind', MediaKind.PHOTO)
+        if kind not in MediaKind.values:
+            return Response({'detail': f"Invalid kind '{kind}'."}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             service = MediaUploadService(listing)
-            media_list = service.upload(files)
+            media_list = service.upload(files, kind=kind)
         except DjangoValidationError as exc:
             return Response(
                 {'detail': exc.message},
@@ -155,6 +161,64 @@ class ListingViewSet(viewsets.ModelViewSet):
     def my_listings(self, request):
         qs = Listing.objects.filter(seller=request.user).order_by('-created_at')
         serializer = ListingSerializer(qs, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    # ── صفقة دوّار — verified exit opportunities ─────────────────────────────
+
+    @action(
+        detail=False,
+        methods=['get'],
+        permission_classes=[permissions.AllowAny],
+        url_path='exit-opportunities',
+    )
+    def exit_opportunities(self, request):
+        """Public list of verified صفقة دوّار listings.
+
+        Supports ``sort``: ``newest`` (default), ``cash_asc`` (lowest cash
+        required first), ``gain_desc`` (biggest buyer gain first), and the
+        existing filter params (governorate/city/bedrooms/etc.) via the same
+        ``get_queryset`` filtering, applied on top of the verified-only base.
+        """
+        qs = (
+            Listing.objects
+            .filter(
+                status=ListingStatus.ACTIVE,
+                is_exit_listing=True,
+                exit_verification_status=ExitVerificationStatus.VERIFIED,
+            )
+            .prefetch_related('media')
+            .select_related('project', 'developer', 'seller')
+        )
+
+        params = request.query_params
+        if params.get('negotiable', '').lower() in ('true', '1'):
+            qs = qs.filter(negotiable=True)
+
+        sort = params.get('sort', 'newest')
+        if sort == 'cash_asc':
+            # cash_required_now = amount_paid + transfer_fee; nulls sort last.
+            from django.db.models import F, Value, DecimalField
+            from django.db.models.functions import Coalesce
+            zero = Value(0, output_field=DecimalField())
+            qs = qs.annotate(
+                _cash_required=Coalesce(F('amount_paid'), zero) + Coalesce(F('transfer_fee'), zero)
+            ).order_by('_cash_required')
+        elif sort == 'gain_desc':
+            from django.db.models import F, Value, DecimalField
+            from django.db.models.functions import Coalesce
+            zero = Value(0, output_field=DecimalField())
+            qs = qs.annotate(
+                _gain=Coalesce(F('developer_current_price'), zero)
+                - Coalesce(F('amount_paid'), zero)
+                - Coalesce(F('transfer_fee'), zero)
+            ).order_by('-_gain')
+        else:
+            qs = qs.order_by('-created_at')
+
+        page = self.paginate_queryset(qs)
+        serializer = ListingSerializer(page or qs, many=True, context={'request': request})
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
         return Response(serializer.data)
 
     # ── Scraper Import ────────────────────────────────────────────────────────

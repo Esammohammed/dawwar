@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Inquiry, Booking
+from .models import Inquiry, Booking, ExitLead
 from apps.listings.serializers import ListingSerializer
 
 class InquirySerializer(serializers.ModelSerializer):
@@ -15,3 +15,9 @@ class BookingSerializer(serializers.ModelSerializer):
         model = Booking
         fields = ['id', 'listing', 'listing_details', 'user', 'deposit_amount', 'status', 'expires_at', 'created_at']
         read_only_fields = ['id', 'user', 'status', 'expires_at', 'created_at']
+
+class ExitLeadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExitLead
+        fields = ['id', 'phone', 'contract_price', 'amount_paid', 'years_paid', 'computed_result', 'created_at']
+        read_only_fields = ['id', 'created_at']

@@ -93,5 +93,15 @@ services:
     depends_on:
       - web
 
+  gov_scraper:
+    build: ./gov-scraper
+    container_name: dawwar_gov_scraper
+    env_file:
+      - ./gov-scraper/.env
+    environment:
+      - DAWWAR_API_URL=http://web:8000/api
+    depends_on:
+      - web
+
 volumes:
   postgres_data:

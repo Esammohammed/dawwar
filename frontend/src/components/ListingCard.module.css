@@ -62,6 +62,13 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
+.exitBadge {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success-border);
+  backdrop-filter: none;
+}
+
 .content {
   padding: 1.25rem;
   display: flex;
@@ -118,6 +125,54 @@
   justify-content: space-between;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border-color);
+}
+
+.footerExit {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.footerRow {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.priceLabel {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.detailsLink {
+  font-size: 0.8rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.gainBox {
+  width: 100%;
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.gainLabel {
+  font-size: 0.8rem;
+  color: var(--success);
+  font-weight: 600;
+}
+
+.gainValue {
+  font-size: 0.9rem;
+  color: var(--success);
+  font-weight: 800;
 }
 
 .price {

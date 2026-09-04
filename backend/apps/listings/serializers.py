@@ -1,5 +1,6 @@
+from django.conf import settings
 from rest_framework import serializers
-from .models import Listing, Media, ListingStatus, ListingType
+from .models import Listing, Media, ListingStatus, ListingType, ExitVerificationStatus
 from apps.projects.serializers import ProjectSerializer
 from apps.developers.serializers import DeveloperSerializer
 
@@ -27,7 +28,14 @@ class ListingSerializer(serializers.ModelSerializer):
     developer_details = DeveloperSerializer(source='developer', read_only=True)
     seller_phone = serializers.SerializerMethodField()
     seller_name = serializers.SerializerMethodField()
-    exit_profile = serializers.SerializerMethodField()
+
+    # "صفقة دوّار" — only populated (non-null) when is_exit_listing is True
+    # and exit_verification_status is verified; every ordinary listing gets
+    # is_exit_listing=False and the three figures as null, same as they'd
+    # never have appeared before this feature existed.
+    cash_required_now = serializers.SerializerMethodField()
+    market_gain = serializers.SerializerMethodField()
+    remaining_to_developer = serializers.SerializerMethodField()
 
     def get_seller_phone(self, obj):
         if obj.type == ListingType.SCRAPED and obj.source_seller_phone:
@@ -38,21 +46,28 @@ class ListingSerializer(serializers.ModelSerializer):
         if obj.type == ListingType.SCRAPED and obj.source_seller_name:
             return obj.source_seller_name
         return obj.seller.full_name if obj.seller else None
-        
-    def get_exit_profile(self, obj):
-        if not hasattr(obj, 'exit_profile') or obj.exit_profile is None:
+
+    def _is_verified_exit(self, obj) -> bool:
+        return bool(obj.is_exit_listing) and obj.exit_verification_status == ExitVerificationStatus.VERIFIED
+
+    def get_cash_required_now(self, obj):
+        if not self._is_verified_exit(obj) or obj.amount_paid is None:
             return None
-            
-        from apps.exit_deals.models import VerificationStatus
-        from apps.exit_deals.serializers import ExitListingSerializer
-        
-        # Optionally, only show exit_profile if it is verified, 
-        # or just return the serialized data. The plan says "when a verified ExitListing exists".
-        if obj.exit_profile.verification_status != VerificationStatus.VERIFIED:
+        return float(obj.amount_paid + (obj.transfer_fee or 0))
+
+    def get_remaining_to_developer(self, obj):
+        if not self._is_verified_exit(obj) or obj.original_price is None or obj.amount_paid is None:
             return None
-            
-        # We can just serialize it with the existing serializer which has the properties
-        return ExitListingSerializer(obj.exit_profile, context=self.context).data
+        return float(obj.original_price - obj.amount_paid)
+
+    def get_market_gain(self, obj):
+        if not self._is_verified_exit(obj) or not obj.developer_current_price:
+            return None
+        cash_required = self.get_cash_required_now(obj)
+        dev_price = float(obj.developer_current_price)
+        rate = float(obj.exit_commission_rate or 0) / 100
+        commission = dev_price * rate if obj.exit_commission_payer == 'buyer' else 0
+        return dev_price - cash_required - commission
 
     class Meta:
         model = Listing
@@ -62,7 +77,9 @@ class ListingSerializer(serializers.ModelSerializer):
             'bathrooms', 'floor', 'finishing', 'unit_attributes', 'governorate', 'city', 'district',
             'asking_price', 'currency', 'negotiable', 'original_price', 'amount_paid', 'transfer_fee',
             'installment_plan', 'status', 'published_at', 'created_at', 'media',
-            'source_site', 'source_url', 'exit_profile'
+            'source_site', 'source_url',
+            'is_exit_listing', 'developer_current_price', 'exit_verification_status',
+            'cash_required_now', 'market_gain', 'remaining_to_developer',
         ]
 
 
@@ -80,13 +97,27 @@ class ListingCreateSerializer(serializers.ModelSerializer):
             'bathrooms', 'floor', 'finishing', 'unit_attributes', 'governorate', 'city',
             'district', 'asking_price', 'currency', 'negotiable', 'original_price',
             'amount_paid', 'transfer_fee', 'installment_plan',
+            'is_exit_listing', 'developer_current_price', 'owner_confirmed_no_markup',
         ]
+
+    def validate(self, data):
+        # "صفقة دوّار" listings must carry the seller's explicit acknowledgement
+        # that they'll receive exactly what they paid — no markup.
+        if data.get('is_exit_listing') and not data.get('owner_confirmed_no_markup'):
+            raise serializers.ValidationError({
+                'owner_confirmed_no_markup': 'You must confirm there is no markup to list a صفقة دوّار transfer.'
+            })
+        return data
 
     def create(self, validated_data: dict) -> Listing:
         user = self.context['request'].user
         # `type` is in the serializer fields so the frontend can send it,
         # but we always force RESALE here — pop it to avoid duplicate kwarg.
         validated_data.pop('type', None)
+        is_exit_listing = validated_data.get('is_exit_listing', False)
+        if is_exit_listing:
+            validated_data['exit_verification_status'] = ExitVerificationStatus.PENDING
+            validated_data['exit_commission_rate'] = settings.EXIT_DEFAULT_COMMISSION_RATE
         return Listing.objects.create(
             seller=user,
             type=ListingType.RESALE,

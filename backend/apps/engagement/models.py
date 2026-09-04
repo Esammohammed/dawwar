@@ -59,3 +59,28 @@ class Booking(models.Model):
 
     def __str__(self):
         return f"Booking {self.id} for Listing {self.listing_id} [{self.status}]"
+
+class ExitLead(models.Model):
+    """A صفقة دوّار calculator submission, captured before any listing exists.
+
+    No FK to Listing — the whole point of the calculator is to work for
+    someone who hasn't decided to list anything yet (AqarExit's own
+    "Safe Exit Calculator" works the same way, with no login required).
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    phone = models.CharField(max_length=20, null=True, blank=True)
+    contract_price = models.DecimalField(max_digits=14, decimal_places=2)
+    amount_paid = models.DecimalField(max_digits=14, decimal_places=2)
+    years_paid = models.DecimalField(max_digits=4, decimal_places=2)
+    computed_result = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Named engagement_exit_leads (not exit_leads) to avoid clashing with
+        # the old apps.exit_deals.ExitLead table during the migration that
+        # removes that app — see apps/listings/migrations/*_backfill_exit_deals.py.
+        db_table = 'engagement_exit_leads'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Exit lead: {self.phone or 'anonymous'} at {self.created_at}"

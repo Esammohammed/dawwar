@@ -15,24 +15,20 @@ const ListingCard = ({ listing }) => {
     return Number(price).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US');
   };
 
+  // cash_required_now is only ever non-null when the backend has confirmed
+  // both is_exit_listing and exit_verification_status=verified (see
+  // ListingSerializer.get_cash_required_now) — safe single switch for the
+  // whole صفقة دوّار treatment below.
+  const isVerifiedExit = listing.cash_required_now != null;
+
   return (
     <Link to={`/listings/${listing.id}`} className={styles.card}>
       <div className={styles.imageWrapper}>
         <img src={coverPhoto} alt={listing.title} className={styles.image} />
-        
-        <span className={styles.typeBadge}>
-          {listing.exit_profile ? (
-            t('exitDeals.badge')
-          ) : (
-            listing.type === 'resale' ? t('listings.resaleBadge') : t('listings.devBadge')
-          )}
-        </span>
 
-        {listing.exit_profile && (
-          <span className={styles.typeBadge} style={{ left: 'auto', right: '1rem', background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0' }}>
-            {t('exitDeals.badge')}
-          </span>
-        )}
+        <span className={`${styles.typeBadge} ${isVerifiedExit ? styles.exitBadge : ''}`}>
+          {isVerifiedExit ? t('exitDeals.badge') : (listing.type === 'resale' ? t('listings.resaleBadge') : t('listings.devBadge'))}
+        </span>
 
         {listing.installment_plan && (
           <span className={styles.installmentBadge}>
@@ -70,30 +66,30 @@ const ListingCard = ({ listing }) => {
           )}
         </div>
 
-        <div className={styles.footer} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem' }}>
-          {listing.exit_profile ? (
+        <div className={`${styles.footer} ${isVerifiedExit ? styles.footerExit : ''}`}>
+          {isVerifiedExit ? (
             <>
-              <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className={styles.footerRow}>
                 <span className={styles.priceLabel}>{t('exitDeals.cashRequired')}:</span>
                 <div>
-                  <span className={styles.price}>{formatPrice(listing.exit_profile.cash_required_now)}</span>
+                  <span className={styles.price}>{formatPrice(listing.cash_required_now)}</span>
                   <span className={styles.currency}> {t('listings.egp')}</span>
                 </div>
               </div>
-              {listing.exit_profile.market_gain > 0 && (
-                <div style={{ width: '100%', background: '#dcfce7', padding: '0.5rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 600 }}>{t('exitDeals.marketGain')}:</span>
-                  <span style={{ fontSize: '0.9rem', color: '#16a34a', fontWeight: 800 }}>+{formatPrice(listing.exit_profile.market_gain)} {t('listings.egp')}</span>
+              {listing.market_gain > 0 && (
+                <div className={styles.gainBox}>
+                  <span className={styles.gainLabel}>{t('exitDeals.marketGain')}:</span>
+                  <span className={styles.gainValue}>+{formatPrice(listing.market_gain)} {t('listings.egp')}</span>
                 </div>
               )}
             </>
           ) : (
-            <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className={styles.footerRow}>
               <div>
                 <span className={styles.price}>{formatPrice(listing.asking_price)}</span>
                 <span className={styles.currency}> {t('listings.egp')}</span>
               </div>
-              <span style={{ fontSize: '0.8rem', color: '#0284c7', fontWeight: '700' }}>
+              <span className={styles.detailsLink}>
                 {t('listings.details')} →
               </span>
             </div>

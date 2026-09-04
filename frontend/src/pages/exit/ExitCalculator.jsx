@@ -26,7 +26,7 @@ const ExitCalculator = () => {
     if (!result) return;
 
     try {
-      await api.post('/exit-deals/calculator-leads/', {
+      await api.post('/exit-leads/', {
         phone,
         contract_price: contractPrice,
         amount_paid: paidToDate,
@@ -102,17 +102,17 @@ const ExitCalculator = () => {
             <div className={styles.comparisonGrid}>
               <div className={styles.resultBoxPenalty}>
                 <h3>{t('exitDeals.calcPenalty')}</h3>
-                <div className={styles.value}>{formatPrice(result.cancelRecovery)}</div>
+                <div className={styles.value}>{formatPrice(result.cancelRecovery)} {t('listings.egp')}</div>
                 <div className={styles.subtext}>
-                  (Penalty: {formatPrice(result.penaltyAmount)})
+                  {t('exitDeals.calcPenaltyNote')}: {formatPrice(result.penaltyAmount)} {t('listings.egp')}
                 </div>
               </div>
-              
+
               <div className={styles.resultBoxRecover}>
                 <h3>{t('exitDeals.calcTransfer')}</h3>
-                <div className={styles.value}>{formatPrice(result.transferRecovery)}</div>
+                <div className={styles.value}>{formatPrice(result.transferRecovery)} {t('listings.egp')}</div>
                 <div className={styles.subtext}>
-                  (Full amount paid)
+                  {t('exitDeals.calcTransferNote')}
                 </div>
               </div>
             </div>
@@ -121,15 +121,15 @@ const ExitCalculator = () => {
               <h4>{t('exitDeals.calcLeadCta')}</h4>
               {submittedLead ? (
                 <div className={styles.successMsg}>
-                  We have received your request and will contact you shortly.
+                  {t('exitDeals.calcLeadSuccess')}
                 </div>
               ) : (
                 <form className={styles.leadForm} onSubmit={handleLeadSubmit}>
-                  <input 
-                    type="tel" 
+                  <input
+                    type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Enter your phone number"
+                    placeholder={t('exitDeals.calcLeadPlaceholder')}
                     required
                   />
                   <button type="submit">

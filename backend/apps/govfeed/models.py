@@ -37,6 +37,18 @@ class Announcement(models.Model):
     ai_summary = models.TextField(blank=True, null=True)
     source_url = models.CharField(max_length=700)
     source_url_hash = models.CharField(max_length=64, unique=True)
+    # Extracted verbatim from the source article when it explicitly states
+    # required papers/eligibility conditions — null means "not mentioned in
+    # this article", not "no requirements exist". Never AI-invented; the
+    # scraper's prompt only ever extracts what the text literally says.
+    requirements = models.JSONField(null=True, blank=True)
+    # Populated only when: no deterministic (regex) or semantic-similarity
+    # match found a known Project, AND the AI normalizer noticed the article
+    # explicitly names a specific government housing program. This is a
+    # suggestion for a human to review in admin, never auto-linked — the
+    # scraper never mints Project rows from free-form AI text, only from
+    # deterministic slug patterns (see apps.govfeed.serializers docstring).
+    suggested_program_name = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=15, choices=AnnouncementStatus.choices, default=AnnouncementStatus.PENDING_REVIEW)
     published_at = models.DateTimeField(null=True, blank=True)
     scraped_at = models.DateTimeField(auto_now_add=True)
